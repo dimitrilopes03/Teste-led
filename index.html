@@ -60,6 +60,28 @@
         .pulse-anim {
             animation: pulse-status 1.5s infinite ease-in-out;
         }
+
+        /* Estilos para input e modal de configuração */
+        input[type="text"] {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: inherit;
+            transition: all 0.3s ease;
+        }
+        input[type="text"]:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            outline: none;
+        }
+        .bg-lamp-on input[type="text"] {
+            background-color: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.15);
+            color: #0f172a;
+        }
+        .bg-lamp-on input[type="text"]:focus {
+            background-color: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body class="bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000">
@@ -75,14 +97,55 @@
             </p>
         </div>
 
-        <!-- STATUS DE REDE (PILL) -->
-        <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500">
-            <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-anim"></span>
-            <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-200">
-                Sincronizando...
-            </span>
+        <div class="flex items-center gap-3">
+            <!-- BOTÃO DE CONFIGURAÇÃO -->
+            <button id="btn-config" class="p-2.5 rounded-full bg-slate-900/40 border border-slate-700/30 hover:bg-slate-800/50 transition-all duration-300" title="Configurar Tópico MQTT">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+
+            <!-- STATUS DE REDE (PILL) -->
+            <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-anim"></span>
+                <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                    Sincronizando...
+                </span>
+            </div>
         </div>
     </header>
+
+    <!-- MODAL DE CONFIGURAÇÃO DO TÓPICO -->
+    <div id="config-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 class="text-lg font-bold text-white mb-4">Configurar Tópico MQTT</h2>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                    Tópico de Publicação
+                </label>
+                <input 
+                    id="topic-input" 
+                    type="text" 
+                    placeholder="esp32/arduino/porta13"
+                    class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
+                />
+                <p class="text-xs text-slate-400 mt-2">
+                    Digite o novo tópico MQTT para controlar o dispositivo.
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-cancel" class="flex-1 py-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
+                    Cancelar
+                </button>
+                <button id="btn-save-topic" class="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- ÁREA CENTRAL: SIMULADOR & INTERFACE -->
     <main class="flex-grow flex flex-col items-center justify-center my-8 w-full">
@@ -121,7 +184,7 @@
     <!-- RODAPÉ -->
     <footer class="w-full text-center pb-4">
         <p class="text-xs text-adaptive-sub opacity-60">
-            Node / Tópico: <span class="font-mono">esp32/arduino/porta13</span>
+            Node / Tópico: <span id="footer-topic" class="font-mono">esp32/arduino/porta13</span>
         </p>
     </footer>
 
@@ -130,7 +193,10 @@
         // Configurações do Broker e Tópicos
         const MQTT_BROKER = "broker.hivemq.com";
         const MQTT_PORT = 8884; // Porta WebSocket Segura (SSL)
-        const MQTT_TOPIC = "esp32/arduino/porta13";
+        const DEFAULT_MQTT_TOPIC = "esp32/arduino/porta13";
+        
+        // Carregar tópico salvo no localStorage ou usar o padrão
+        let MQTT_TOPIC = localStorage.getItem("mqtt_topic") || DEFAULT_MQTT_TOPIC;
         
         // Gerador de ID Único e Aleatório para evitar conflitos na rede HiveMQ
         const clientUniqueId = "client_iot_p13_" + Math.random().toString(36).substring(2, 15);
@@ -145,9 +211,15 @@
         const ledStatusText = document.getElementById("led-status-text");
         const btnOn = document.getElementById("btn-on");
         const btnOff = document.getElementById("btn-off");
+        const configModal = document.getElementById("config-modal");
+        const topicInput = document.getElementById("topic-input");
+        const footerTopic = document.getElementById("footer-topic");
+        const btnConfig = document.getElementById("btn-config");
+        const btnCancel = document.getElementById("btn-cancel");
+        const btnSaveTopic = document.getElementById("btn-save-topic");
 
         // Inicializa a instância do Cliente MQTT Paho
-        const client = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientUniqueId);
+        let client = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientUniqueId);
 
         // Atribuição de Callbacks do Ciclo de Vida do MQTT
         client.onConnectionLost = onConnectionLost;
@@ -163,6 +235,64 @@
 
         // Executa a conexão automática ao carregar a página
         client.connect(connectOptions);
+
+        // EVENT LISTENERS DO MODAL DE CONFIGURAÇÃO
+        btnConfig.addEventListener('click', () => {
+            topicInput.value = MQTT_TOPIC;
+            configModal.classList.remove('hidden');
+            topicInput.focus();
+        });
+
+        btnCancel.addEventListener('click', () => {
+            configModal.classList.add('hidden');
+        });
+
+        btnSaveTopic.addEventListener('click', saveTopic);
+        topicInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveTopic();
+        });
+
+        configModal.addEventListener('click', (e) => {
+            if (e.target === configModal) {
+                configModal.classList.add('hidden');
+            }
+        });
+
+        function saveTopic() {
+            const newTopic = topicInput.value.trim();
+            
+            if (!newTopic) {
+                alert("Por favor, digite um tópico válido.");
+                return;
+            }
+
+            // Se o cliente está conectado, desinscreve do tópico antigo
+            if (client && client.isConnected()) {
+                try {
+                    client.unsubscribe(MQTT_TOPIC);
+                } catch (e) {
+                    console.warn("Erro ao desinscrever do tópico antigo:", e);
+                }
+            }
+
+            // Atualiza o tópico
+            MQTT_TOPIC = newTopic;
+            localStorage.setItem("mqtt_topic", MQTT_TOPIC);
+            footerTopic.innerText = MQTT_TOPIC;
+
+            // Se conectado, inscreve no novo tópico
+            if (client && client.isConnected()) {
+                try {
+                    client.subscribe(MQTT_TOPIC);
+                    console.log(`Inscrito no novo tópico: ${MQTT_TOPIC}`);
+                } catch (e) {
+                    console.error("Erro ao inscrever no novo tópico:", e);
+                }
+            }
+
+            configModal.classList.add('hidden');
+            console.log(`Tópico atualizado para: ${MQTT_TOPIC}`);
+        }
 
         // CALLBACK: Sucesso ao Conectar
         function onConnectSuccess() {
@@ -227,7 +357,7 @@
                 const message = new Paho.MQTT.Message(command);
                 message.destinationName = MQTT_TOPIC;
                 client.send(message);
-                console.log(`Comando '${command}' enviado para a Nuvem.`);
+                console.log(`Comando '${command}' enviado para a Nuvem no tópico: ${MQTT_TOPIC}`);
             }
         }
 
@@ -257,6 +387,9 @@
             btnOff.disabled = true;
             btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
         }
+
+        // Atualizar footer com tópico inicial
+        footerTopic.innerText = MQTT_TOPIC;
     </script>
 </body>
 </html>
