@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central de Iluminação IoT</title>
+    <!-- Tailwind CSS para estilização rápida e moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter para tipografia ultra-limpa -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Biblioteca Oficial Paho MQTT -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Cores de fundo dinâmicas e relaxantes baseadas no estado da lâmpada */
+        .bg-lamp-off {
+            background-color: #1a2a4a; /* Azul escuro noturno/relaxante */
+        }
+        .bg-lamp-on {
+            background-color: #e0f2fe; /* Azul céu claro suave */
+        }
+
+        /* Cores de texto adaptativas para manter contraste perfeito */
+        .text-adaptive-title {
+            transition: color 0.8s ease;
+        }
+        .bg-lamp-off .text-adaptive-title { color: #f8fafc; }
+        .bg-lamp-on .text-adaptive-title { color: #0f172a; }
+
+        .text-adaptive-sub {
+            transition: color 0.8s ease;
+        }
+        .bg-lamp-off .text-adaptive-sub { color: #94a3b8; }
+        .bg-lamp-on .text-adaptive-sub { color: #475569; }
+
+        /* Efeito de Brilho Neon para a Lâmpada Acesa */
+        .glow-active {
+            box-shadow: 0 0 40px 10px rgba(253, 224, 71, 0.6), 
+                        0 0 70px 25px rgba(249, 115, 22, 0.4);
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.03); opacity: 1; box-shadow: 0 0 50px 15px rgba(253, 224, 71, 0.7), 0 0 80px 30px rgba(249, 115, 22, 0.5); }
+        }
+
+        /* Animação do Status de Sincronização */
+        @keyframes pulse-status {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        .pulse-anim {
+            animation: pulse-status 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000">
+
+    <!-- CABEÇALHO -->
+    <header class="w-full max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+        <div class="text-center sm:text-left">
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-adaptive-title">
+                Central de Iluminação IoT
+            </h1>
+            <p class="text-sm font-medium tracking-wide mt-1 text-adaptive-sub uppercase">
+                Controle de Hardware — Porta 13
+            </p>
+        </div>
+
+        <!-- STATUS DE REDE (PILL) -->
+        <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500">
+            <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-anim"></span>
+            <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                Sincronizando...
+            </span>
+        </div>
+    </header>
+
+    <!-- ÁREA CENTRAL: SIMULADOR & INTERFACE -->
+    <main class="flex-grow flex flex-col items-center justify-center my-8 w-full">
+        <div class="w-full max-w-md bg-white/10 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-800/30 shadow-2xl flex flex-col items-center justify-center transition-all duration-500">
+            
+            <!-- PRÉ-VISUALIZAÇÃO DA LÂMPADA / LED VIRTUAL -->
+            <div class="relative w-64 h-64 flex flex-col items-center justify-center mb-8">
+                <!-- Círculo Base da Lâmpada Levemente Transparente para Conforto Visual -->
+                <div id="led-virtual" class="w-40 h-40 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out">
+                    <!-- Ícone Vetorial da Lâmpada (Minimalista) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" id="lamp-icon" class="w-20 h-20 text-slate-500/60 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a3.5 3.5 0 003.5-3.5H8.5A3.5 3.5 0 0012 18z" />
+                    </svg>
+                </div>
+                <!-- Texto de Feedback de Estado Interno do LED -->
+                <span id="led-status-text" class="absolute bottom-0 text-sm font-semibold tracking-wider text-adaptive-sub uppercase mt-4">
+                    Dispositivo Inativo
+                </span>
+            </div>
+
+            <!-- BOTÕES DE AÇÃO -->
+            <div class="w-full grid grid-cols-2 gap-4">
+                <button id="btn-on" disabled 
+                    class="py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-500/40 border border-emerald-400/20 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none">
+                    Ligar
+                </button>
+                <button id="btn-off" disabled 
+                    class="py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-500/40 border border-rose-400/20 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none">
+                    Desligar
+                </button>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- RODAPÉ -->
+    <footer class="w-full text-center pb-4">
+        <p class="text-xs text-adaptive-sub opacity-60">
+            Node / Tópico: <span class="font-mono">esp32/arduino/porta13</span>
+        </p>
+    </footer>
+
+    <!-- LOGICA DE HARDWARE E CONEXÃO MQTT -->
+    <script>
+        // Configurações do Broker e Tópicos
+        const MQTT_BROKER = "broker.hivemq.com";
+        const MQTT_PORT = 8884; // Porta WebSocket Segura (SSL)
+        const MQTT_TOPIC = "esp32/arduino/porta13";
+        
+        // Gerador de ID Único e Aleatório para evitar conflitos na rede HiveMQ
+        const clientUniqueId = "client_iot_p13_" + Math.random().toString(36).substring(2, 15);
+
+        // Mapeamento dos Elementos do DOM
+        const bodyEl = document.body;
+        const statusPill = document.getElementById("status-pill");
+        const statusDot = document.getElementById("status-dot");
+        const statusText = document.getElementById("status-text");
+        const ledVirtual = document.getElementById("led-virtual");
+        const lampIcon = document.getElementById("lamp-icon");
+        const ledStatusText = document.getElementById("led-status-text");
+        const btnOn = document.getElementById("btn-on");
+        const btnOff = document.getElementById("btn-off");
+
+        // Inicializa a instância do Cliente MQTT Paho
+        const client = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientUniqueId);
+
+        // Atribuição de Callbacks do Ciclo de Vida do MQTT
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // Opções de Conexão com Suporte Seguro (SSL via WebSockets)
+        const connectOptions = {
+            useSSL: true,
+            timeout: 3,
+            onSuccess: onConnectSuccess,
+            onFailure: onConnectFailure
+        };
+
+        // Executa a conexão automática ao carregar a página
+        client.connect(connectOptions);
+
+        // CALLBACK: Sucesso ao Conectar
+        function onConnectSuccess() {
+            console.log("Conectado ao Broker MQTT com Sucesso!");
+            
+            // Atualiza visualmente o Status Pill para Verde Esmeralda Online
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+            statusText.innerText = "Sistema Online";
+            statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
+            statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
+
+            // Libera e dá vida aos botões de ação na interface
+            enableActionButtons();
+
+            // Inscreve no tópico correspondente para escutar o estado real do LED
+            client.subscribe(MQTT_TOPIC);
+        }
+
+        // CALLBACK: Falha Crítica ao Conectar
+        function onConnectFailure(error) {
+            console.error("Falha na conexão inicial:", error);
+            setSystemOffline();
+        }
+
+        // CALLBACK: Queda de Conexão no meio da execução
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.warn("Conexão perdida de forma inesperada:", responseObject.errorMessage);
+                setSystemOffline();
+            }
+        }
+
+        // REGRA DE OURO DA ARQUITETURA:
+        // O estado da interface muda RIGOROSAMENTE aqui quando a mensagem retorna do Broker.
+        function onMessageArrived(message) {
+            const payload = message.payloadString.trim();
+            console.log(`Mensagem recebida do Broker no tópico [${message.destinationName}]: ${payload}`);
+
+            if (payload === "1") {
+                // Estado ATIVO (Ligado)
+                bodyEl.className = "bg-lamp-on min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
+                
+                ledVirtual.className = "w-40 h-40 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
+                lampIcon.setAttribute("class", "w-20 h-20 text-orange-500 transition-colors duration-700");
+                
+                ledStatusText.innerText = "Dispositivo Ativo";
+            } 
+            else if (payload === "0") {
+                // Estado INATIVO (Desligado)
+                bodyEl.className = "bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
+                
+                ledVirtual.className = "w-40 h-40 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
+                lampIcon.setAttribute("class", "w-20 h-20 text-slate-500/60 transition-colors duration-700");
+                
+                ledStatusText.innerText = "Dispositivo Inativo";
+            }
+        }
+
+        // Função de envio / Publicação de Mensagem MQTT
+        function publishCommand(command) {
+            if (client && client.isConnected()) {
+                const message = new Paho.MQTT.Message(command);
+                message.destinationName = MQTT_TOPIC;
+                client.send(message);
+                console.log(`Comando '${command}' enviado para a Nuvem.`);
+            }
+        }
+
+        // EventListeners dos Botões de Ação
+        btnOn.addEventListener('click', () => publishCommand("1"));
+        btnOff.addEventListener('click', () => publishCommand("0"));
+
+        // Helpers de Gerenciamento da Interface
+        function enableActionButtons() {
+            btnOn.disabled = false;
+            btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
+            
+            btnOff.disabled = false;
+            btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
+        }
+
+        function setSystemOffline() {
+            // Modifica visualmente a pílula de status para Vermelho Alerta
+            statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+            statusText.innerText = "Desconectado";
+            statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
+            statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
+
+            // Bloqueia novamente os comandos na interface
+            btnOn.disabled = true;
+            btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+            btnOff.disabled = true;
+            btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+        }
+    </script>
+</body>
+</html>
