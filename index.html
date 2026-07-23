@@ -6,7 +6,9 @@
     <title>Central de Iluminação IoT</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/paho-mqtt@1.1.0/paho-mqtt.min.js"></script>
+    
+    <!-- BIBLIOTECA MQTT - VERSÃO TESTADA -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 
     <style>
         body { font-family: 'Inter', sans-serif; background: #0f172a; min-height: 100vh; }
@@ -81,7 +83,7 @@
     <main class="flex-grow flex flex-col items-center justify-center my-6 w-full">
         <div class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 gap-4">
             
-            <!-- LED 8 - Liga/Desliga -->
+            <!-- LED 8 -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
                 <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
@@ -99,7 +101,7 @@
                 <p class="text-[10px] text-slate-500 mt-2">Porta 8</p>
             </div>
 
-            <!-- LED 9 - Liga/Desliga -->
+            <!-- LED 9 -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
                 <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
@@ -117,7 +119,7 @@
                 <p class="text-[10px] text-slate-500 mt-2">Porta 9</p>
             </div>
 
-            <!-- LED 10 - Intensidade Variável (PWM) -->
+            <!-- LED 10 - PWM -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
                 <p class="text-xs text-slate-500 mb-2">🎚️ Intensidade Variável</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
@@ -137,7 +139,7 @@
                 <p class="text-[10px] text-slate-500 mt-2">Porta 10 (PWM) - Potenciômetro A0</p>
             </div>
 
-            <!-- LED 13 - Liga/Desliga -->
+            <!-- LED 13 -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
                 <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
@@ -181,6 +183,38 @@
         (function() {
             'use strict';
 
+            // ==========================================
+            // VERIFICAÇÃO DA BIBLIOTECA MQTT
+            // ==========================================
+            function verificarBiblioteca() {
+                if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
+                    log('❌ Biblioteca MQTT não carregou! Tentando novamente...', 'erro');
+                    // Tenta carregar a biblioteca novamente
+                    carregarBibliotecaMQTT();
+                    return false;
+                }
+                log('✅ Biblioteca MQTT carregada com sucesso!', 'sucesso');
+                return true;
+            }
+
+            function carregarBibliotecaMQTT() {
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js';
+                script.onload = function() {
+                    log('✅ Biblioteca MQTT carregada via fallback!', 'sucesso');
+                    iniciarSistema();
+                };
+                script.onerror = function() {
+                    log('❌ Falha ao carregar biblioteca MQTT. Verifique sua conexão com a internet.', 'erro');
+                    // Tenta novamente após 5 segundos
+                    setTimeout(carregarBibliotecaMQTT, 5000);
+                };
+                document.head.appendChild(script);
+            }
+
+            // ==========================================
+            // CONFIGURAÇÕES
+            // ==========================================
             const PORTS_ONOFF = [8, 9, 13];
             const PORT_PWM = 10;
             const TOPICO = 'led';
@@ -193,8 +227,11 @@
             let ledStates = {8: 0, 9: 0, 10: 0, 13: 0};
             let intensidade10 = 0;
             let tentativas = 0;
+            let sistemaInicializado = false;
 
+            // ==========================================
             // DOM
+            // ==========================================
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
             const logArea = document.getElementById('log-area');
@@ -214,7 +251,6 @@
                 btnOffs[port] = document.getElementById(`btn-off-${port}`);
             });
 
-            // LED10 (PWM) - elementos específicos
             const ledVirtual10 = document.getElementById('led-virtual-10');
             const lampIcon10 = document.getElementById('lamp-icon-10');
             const ledStatus10 = document.getElementById('led-status-text-10');
@@ -279,22 +315,19 @@
             }
 
             // ==========================================
-            // LED UI - PWM (Intensidade)
+            // LED UI - PWM
             // ==========================================
             function updateLedPWM(intensidade) {
-                // intensidade: 0 a 255
                 const percentual = Math.round((intensidade / 255) * 100);
                 intensidade10 = intensidade;
                 ledStates[10] = intensidade > 0 ? 1 : 0;
 
-                // Atualiza a lâmpada
                 if (intensidade > 0) {
                     const brilho = Math.round((intensidade / 255) * 100);
-                    // Amarelo com intensidade variável
                     ledVirtual10.className = `w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500`;
                     ledVirtual10.style.background = `rgba(253, 224, 71, ${brilho/100})`;
                     ledVirtual10.style.boxShadow = `0 0 ${40 + brilho}px ${10 + brilho/5}px rgba(253, 224, 71, ${brilho/200})`;
-                    lampIcon10.setAttribute('class', `w-12 h-12 text-orange-${Math.min(5, Math.floor(brilho/20)+1)}00 transition-colors duration-500`);
+                    lampIcon10.setAttribute('class', `w-12 h-12 text-orange-500 transition-colors duration-500`);
                     ledStatus10.innerHTML = `<span class="text-emerald-400">● ${percentual}%</span>`;
                 } else {
                     ledVirtual10.className = 'w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500';
@@ -304,7 +337,6 @@
                     ledStatus10.innerHTML = '<span class="text-slate-400">○ 0%</span>';
                 }
 
-                // Atualiza a barra
                 barra10.style.width = percentual + '%';
                 label10.textContent = `Intensidade: ${percentual}%`;
             }
@@ -347,6 +379,13 @@
                     client = null;
                 }
 
+                // Verifica se a biblioteca está disponível
+                if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
+                    log('❌ Biblioteca MQTT não disponível', 'erro');
+                    verificarBiblioteca();
+                    return;
+                }
+
                 const clientId = 'web_' + Math.random().toString(16).substring(2, 10);
 
                 try {
@@ -363,7 +402,6 @@
                         const payload = message.payloadString.trim();
                         const topic = message.destinationName;
                         
-                        // Verifica se é dado do potenciômetro
                         if (topic === TOPICO_POT) {
                             const valor = parseInt(payload);
                             if (!isNaN(valor) && valor >= 0 && valor <= 255) {
@@ -426,7 +464,7 @@
                     });
 
                 } catch (e) {
-                    log(`❌ Erro: ${e}`, 'erro');
+                    log(`❌ Erro ao criar cliente: ${e}`, 'erro');
                     setTimeout(() => { if (!conectado) conectarMQTT(); }, 5000);
                 }
             }
@@ -464,32 +502,42 @@
             // ==========================================
             // INICIALIZAÇÃO
             // ==========================================
-            function init() {
-                log('🚀 Iniciando...', 'info');
+            function iniciarSistema() {
+                if (sistemaInicializado) return;
+                sistemaInicializado = true;
+                
+                log('🚀 Iniciando sistema...', 'info');
                 setStatus('offline', 'Desconectado');
                 updateAllLEDs(0);
                 
-                if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
-                    log('❌ Biblioteca MQTT não carregou!', 'erro');
-                    setTimeout(init, 2000);
+                if (!verificarBiblioteca()) {
                     return;
                 }
                 
-                log('✅ Biblioteca MQTT carregada', 'sucesso');
                 conectarMQTT();
             }
 
+            // Inicia quando a página carregar
             if (document.readyState === 'complete') {
-                init();
+                iniciarSistema();
             } else {
-                window.addEventListener('load', init);
+                window.addEventListener('load', iniciarSistema);
             }
+
+            // Fallback: se a biblioteca não carregar em 3 segundos, tenta novamente
+            setTimeout(function() {
+                if (!sistemaInicializado) {
+                    log('⏳ Aguardando biblioteca MQTT...', 'aviso');
+                    carregarBibliotecaMQTT();
+                }
+            }, 3000);
 
             window.__iot = {
                 conectar: conectarMQTT,
                 publicar: publicar,
                 estados: ledStates,
-                log: log
+                log: log,
+                carregarBiblioteca: carregarBibliotecaMQTT
             };
 
         })();
