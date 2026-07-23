@@ -82,14 +82,13 @@
         .btn-on.active {
             background-color: #22c55e !important;
             border-color: #16a34a !important;
-            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3) !important;
         }
         .btn-off.active {
             background-color: #ef4444 !important;
             border-color: #dc2626 !important;
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3) !important;
         }
 
+        /* Indicador de tentativas */
         .tentativa {
             font-size: 10px;
             color: #94a3b8;
@@ -145,7 +144,7 @@
                     />
                     <p class="text-xs text-slate-400 mt-2">
                         Configure o tópico MQTT único para controlar todos os LEDs.
-                        <br>Comandos: LED8_ON, LED8_OFF, LED9_ON, LED9_OFF, LED10_ON, LED10_OFF, LED13_ON, LED13_OFF, ALLON, ALLOFF
+                        <br>Comandos: LED8, LED9, LED10, LED13, ALLON, ALLOFF
                     </p>
                 </div>
             </div>
@@ -435,7 +434,7 @@
         }
 
         // ==========================================
-        // CONEXÃO MQTT
+        // CONEXÃO MQTT - CORRIGIDA COM TRATAMENTO DE ERRO
         // ==========================================
         function connectMqtt() {
             if (reconnectTimeout) {
@@ -462,14 +461,17 @@
                 client = null;
             }
 
+            // CONFIGURAÇÃO PARA PORTA 8884 COM SSL
             const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
             const broker = 'broker.hivemq.com';
             const port = 8884;
             
             try {
+                // Cria cliente com WebSocket
                 client = new Paho.MQTT.Client(broker, port, clientId);
                 client.useSSL = true;
 
+                // Callback de conexão bem-sucedida
                 const onConnect = () => {
                     isConnected = true;
                     tentativa = 0;
@@ -478,12 +480,14 @@
                     setStatus('online', 'Sistema Online');
                     setButtonsEnabled(true);
                     
+                    // Inscrever no tópico
                     if (currentTopic && currentTopic.length > 0) {
                         client.subscribe(currentTopic, { qos: 1 });
                         log(`📥 Inscrito em: ${currentTopic}`);
                     }
                 };
 
+                // Callback de falha na conexão
                 const onFailure = (err) => {
                     isConnected = false;
                     const erroMsg = err.errorMessage || err || 'Erro desconhecido';
@@ -492,6 +496,7 @@
                     setButtonsEnabled(false);
                     console.error('[MQTT] Erro:', err);
                     
+                    // Tentar reconectar após 3 segundos
                     reconnectTimeout = setTimeout(() => {
                         if (!isConnected) {
                             connectMqtt();
@@ -499,12 +504,14 @@
                     }, 3000);
                 };
 
+                // Callback de perda de conexão
                 const onConnectionLost = (response) => {
                     isConnected = false;
                     log("⚠️ Conexão MQTT perdida");
                     setStatus('offline', 'Conexão perdida');
                     setButtonsEnabled(false);
                     
+                    // Tentar reconectar após 3 segundos
                     reconnectTimeout = setTimeout(() => {
                         if (!isConnected) {
                             connectMqtt();
@@ -512,203 +519,11 @@
                     }, 3000);
                 };
 
+                // Callback de mensagem recebida
                 const onMessageArrived = (message) => {
                     const payload = message.payloadString.trim();
                     const topic = message.destinationName;
                     log(`📨 Mensagem recebida | Tópico: ${topic} | Payload: ${payload}`);
 
-                    // Processar comandos ON/OFF recebidos
                     if (payload.startsWith('LED')) {
-                        const parts = payload.split('_');
-                        if (parts.length === 2) {
-                            const ledNum = parseInt(parts[0].replace('LED', ''));
-                            const acao = parts[1];
-                            
-                            if (PORTS.includes(ledNum)) {
-                                if (acao === 'ON') {
-                                    updateLedUI(ledNum, 1);
-                                    log(`💡 LED${ledNum} LIGADO`);
-                                } else if (acao === 'OFF') {
-                                    updateLedUI(ledNum, 0);
-                                    log(`💡 LED${ledNum} DESLIGADO`);
-                                }
-                            }
-                        }
-                    }
-                    else if (payload === 'ALLON') {
-                        PORTS.forEach(port => updateLedUI(port, 1));
-                        log('💡 Todos os LEDs ligados');
-                    }
-                    else if (payload === 'ALLOFF') {
-                        PORTS.forEach(port => updateLedUI(port, 0));
-                        log('💡 Todos os LEDs desligados');
-                    }
-                };
-
-                client.onConnectionLost = onConnectionLost;
-                client.onMessageArrived = onMessageArrived;
-
-                const options = {
-                    timeout: 10,
-                    onSuccess: onConnect,
-                    onFailure: onFailure,
-                    useSSL: true,
-                    cleanSession: true,
-                };
-
-                log("📡 Conectando ao broker.hivemq.com:8884 com SSL...");
-                client.connect(options);
-            } catch (e) {
-                log(`❌ Erro ao criar cliente MQTT: ${e}`);
-                console.error(e);
-                reconnectTimeout = setTimeout(() => {
-                    if (!isConnected) {
-                        connectMqtt();
-                    }
-                }, 3000);
-            }
-        }
-
-        // Trocar tópico
-        function switchTopic(newTopic) {
-            if (!client || !isConnected) {
-                log("❌ MQTT não conectado, apenas salvando tópico...");
-                currentTopic = newTopic;
-                saveTopicToLocalStorage();
-                return;
-            }
-
-            log("🔄 Trocando inscrição MQTT...");
-
-            try {
-                if (currentTopic && currentTopic.length > 0) {
-                    client.unsubscribe(currentTopic, { qos: 1 });
-                    log(`📤 Desinscrito de: ${currentTopic}`);
-                }
-                if (newTopic && newTopic.length > 0) {
-                    client.subscribe(newTopic, { qos: 1 });
-                    log(`📥 Inscrito em: ${newTopic}`);
-                }
-            } catch (e) {
-                console.error('[MQTT] Erro ao trocar:', e);
-            }
-
-            currentTopic = newTopic;
-            saveTopicToLocalStorage();
-        }
-
-        // Publicar comando
-        function publishCommand(command) {
-            if (!client || !isConnected) {
-                log(`❌ Não conectado ao MQTT`);
-                alert('Não conectado ao broker MQTT! Aguarde a conexão.');
-                return;
-            }
-            if (!currentTopic || currentTopic.length === 0) {
-                log(`❌ Tópico inválido`);
-                return;
-            }
-            try {
-                const msg = new Paho.MQTT.Message(command);
-                msg.destinationName = currentTopic;
-                msg.qos = 1;
-                client.send(msg);
-                log(`📤 Publicado '${command}' em ${currentTopic}`);
-            } catch (e) {
-                log(`❌ Erro ao publicar: ${e}`);
-                console.error(e);
-            }
-        }
-
-        // Modal events
-        btnConfig.addEventListener('click', () => {
-            topicInput.value = currentTopic;
-            configModal.classList.remove('hidden');
-        });
-
-        btnCancel.addEventListener('click', () => {
-            configModal.classList.add('hidden');
-        });
-
-        function saveTopic() {
-            const val = topicInput.value.trim();
-            if (!val) {
-                alert('Digite um tópico válido.');
-                return;
-            }
-            switchTopic(val);
-            configModal.classList.add('hidden');
-            log(`✅ Tópico atualizado: ${val}`);
-        }
-
-        btnSaveTopic.addEventListener('click', saveTopic);
-        topicInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') saveTopic();
-        });
-
-        configModal.addEventListener('click', (e) => {
-            if (e.target === configModal) {
-                configModal.classList.add('hidden');
-            }
-        });
-
-        // ==========================================
-        // EVENTOS DOS BOTÕES - COMANDOS ON/OFF ESPECÍFICOS
-        // ==========================================
-        PORTS.forEach(port => {
-            // Botão Ligar
-            btnOns[port].addEventListener('click', () => {
-                const command = `LED${port}_ON`;
-                publishCommand(command);
-                updateLedUI(port, 1);  // Atualiza imediatamente para LIGADO
-                log(`📤 Enviando comando: ${command}`);
-            });
-            
-            // Botão Desligar
-            btnOffs[port].addEventListener('click', () => {
-                const command = `LED${port}_OFF`;
-                publishCommand(command);
-                updateLedUI(port, 0);  // Atualiza imediatamente para DESLIGADO
-                log(`📤 Enviando comando: ${command}`);
-            });
-        });
-
-        // Botões gerais
-        btnAllOn.addEventListener('click', () => {
-            publishCommand('ALLON');
-            PORTS.forEach(port => updateLedUI(port, 1));
-            log('📤 Enviando comando: ALLON');
-        });
-
-        btnAllOff.addEventListener('click', () => {
-            publishCommand('ALLOFF');
-            PORTS.forEach(port => updateLedUI(port, 0));
-            log('📤 Enviando comando: ALLOFF');
-        });
-
-        // Init
-        function init() {
-            setStatus('sync', 'Sincronizando...');
-            setButtonsEnabled(false);
-            loadTopic();
-            PORTS.forEach(port => {
-                updateLedUI(port, 0);
-            });
-            connectMqtt();
-        }
-
-        init();
-
-        // Debug global
-        window.__iot = {
-            client,
-            connectMqtt,
-            publishCommand,
-            currentTopic,
-            log,
-            refreshTopic: loadTopic,
-            reconnect: connectMqtt
-        };
-    </script>
-</body>
-</html>
+                        const ledNum = parseInt(payload.replace('LED
