@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Central de Iluminação IoT</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- BIBLIOTECA MQTT CORRETA -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -55,54 +56,36 @@
             animation: pulse-status 1.5s infinite ease-in-out;
         }
 
-        input[type="text"] {
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: inherit;
-            transition: all 0.3s ease;
-        }
-        input[type="text"]:focus {
-            background-color: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            outline: none;
-        }
-        .bg-lamp-on input[type="text"] {
-            background-color: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.15);
-            color: #0f172a;
-        }
-        .bg-lamp-on input[type="text"]:focus {
-            background-color: rgba(0, 0, 0, 0.1);
-            border-color: rgba(0, 0, 0, 0.3);
-        }
-
-        .btn-on {
-            transition: all 0.3s ease;
-        }
         .btn-on.active {
             background-color: #22c55e !important;
             border-color: #16a34a !important;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3) !important;
         }
         .btn-off.active {
             background-color: #ef4444 !important;
             border-color: #dc2626 !important;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3) !important;
         }
 
-        /* Indicador de tentativas */
-        .tentativa {
-            font-size: 10px;
-            color: #94a3b8;
-            margin-top: 4px;
+        .log-area {
+            max-height: 80px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        .log-area p {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
     </style>
 </head>
-<body class="bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000">
+<body class="bg-lamp-off min-h-screen flex flex-col p-6 transition-all duration-1000">
 
     <!-- CABEÇALHO -->
     <header class="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-        <div class="text-center sm:text-left">
+        <div>
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-adaptive-title">
-                Central de Iluminação IoT
+                💡 Central de Iluminação IoT
             </h1>
             <p class="text-sm font-medium tracking-wide mt-1 text-adaptive-sub uppercase">
                 Controle de Hardware — Portas 8, 9, 10 e 13
@@ -110,62 +93,21 @@
         </div>
 
         <div class="flex items-center gap-3">
-            <button id="btn-config" class="p-2.5 rounded-full bg-slate-900/40 border border-slate-700/30 hover:bg-slate-800/50 transition-all duration-300" title="Configurar Tópico MQTT">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 00.78 2.737c1.806.307 1.806 2.864 0 3.171a1.724 1.724 0 00-.78 2.737c.94 1.543-.827 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-.78-2.737c-1.806-.307-1.806-2.864 0-3.171a1.724 1.724 0 00.78-2.737c-.94-1.543.827-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            </button>
-
             <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500">
-                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-anim"></span>
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
                 <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-200">
-                    Sincronizando...
+                    Desconectado
                 </span>
             </div>
         </div>
     </header>
 
-    <!-- MODAL DE CONFIGURAÇÃO -->
-    <div id="config-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[80vh] overflow-y-auto">
-            <h2 class="text-lg font-bold text-white mb-4">Configurar Tópico MQTT</h2>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                        Tópico Único
-                    </label>
-                    <input 
-                        id="topic-input" 
-                        type="text" 
-                        placeholder="led"
-                        class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
-                    />
-                    <p class="text-xs text-slate-400 mt-2">
-                        Configure o tópico MQTT único para controlar todos os LEDs.
-                        <br>Comandos: LED8, LED9, LED10, LED13, ALLON, ALLOFF
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex gap-3 mt-6">
-                <button id="btn-cancel" class="flex-1 py-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
-                    Cancelar
-                </button>
-                <button id="btn-save-topic" class="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
-                    Salvar
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- ÁREA CENTRAL: 4 LEDS -->
     <main class="flex-grow flex flex-col items-center justify-center my-8 w-full">
         <div class="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            <!-- LED PORTA 8 -->
-            <div class="bg-white/10 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-800/30 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
+            <!-- LED 8 -->
+            <div class="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
                 <div class="relative w-48 h-48 flex flex-col items-center justify-center mb-6">
                     <div id="led-virtual-8" class="w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out">
                         <svg xmlns="http://www.w3.org/2000/svg" id="lamp-icon-8" class="w-16 h-16 text-slate-500/60 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -176,22 +118,19 @@
                         Inativo
                     </span>
                 </div>
-
                 <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-8" disabled 
-                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-on-8" class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 transition-all duration-300">
                         Ligar
                     </button>
-                    <button id="btn-off-8" disabled 
-                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-off-8" class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 transition-all duration-300">
                         Desligar
                     </button>
                 </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 8</p>
             </div>
 
-            <!-- LED PORTA 9 -->
-            <div class="bg-white/10 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-800/30 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
+            <!-- LED 9 -->
+            <div class="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
                 <div class="relative w-48 h-48 flex flex-col items-center justify-center mb-6">
                     <div id="led-virtual-9" class="w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out">
                         <svg xmlns="http://www.w3.org/2000/svg" id="lamp-icon-9" class="w-16 h-16 text-slate-500/60 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,22 +141,19 @@
                         Inativo
                     </span>
                 </div>
-
                 <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-9" disabled 
-                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-on-9" class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 transition-all duration-300">
                         Ligar
                     </button>
-                    <button id="btn-off-9" disabled 
-                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-off-9" class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 transition-all duration-300">
                         Desligar
                     </button>
                 </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 9</p>
             </div>
 
-            <!-- LED PORTA 10 -->
-            <div class="bg-white/10 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-800/30 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
+            <!-- LED 10 -->
+            <div class="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
                 <div class="relative w-48 h-48 flex flex-col items-center justify-center mb-6">
                     <div id="led-virtual-10" class="w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out">
                         <svg xmlns="http://www.w3.org/2000/svg" id="lamp-icon-10" class="w-16 h-16 text-slate-500/60 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -228,22 +164,19 @@
                         Inativo
                     </span>
                 </div>
-
                 <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-10" disabled 
-                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-on-10" class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 transition-all duration-300">
                         Ligar
                     </button>
-                    <button id="btn-off-10" disabled 
-                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-off-10" class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 transition-all duration-300">
                         Desligar
                     </button>
                 </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 10</p>
             </div>
 
-            <!-- LED PORTA 13 -->
-            <div class="bg-white/10 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-800/30 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
+            <!-- LED 13 -->
+            <div class="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl flex flex-col items-center justify-center transition-all duration-700">
                 <div class="relative w-48 h-48 flex flex-col items-center justify-center mb-6">
                     <div id="led-virtual-13" class="w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out">
                         <svg xmlns="http://www.w3.org/2000/svg" id="lamp-icon-13" class="w-16 h-16 text-slate-500/60 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -254,14 +187,11 @@
                         Inativo
                     </span>
                 </div>
-
                 <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-13" disabled 
-                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-on-13" class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 transition-all duration-300">
                         Ligar
                     </button>
-                    <button id="btn-off-13" disabled 
-                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                    <button id="btn-off-13" class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 transition-all duration-300">
                         Desligar
                     </button>
                 </div>
@@ -272,258 +202,337 @@
 
         <!-- BOTÕES GERAIS -->
         <div class="w-full max-w-6xl grid grid-cols-2 gap-4 mt-8">
-            <button id="btn-all-on" disabled 
-                class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+            <button id="btn-all-on" class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 transition-all duration-300">
                 💡 Ligar Todos
             </button>
-            <button id="btn-all-off" disabled 
-                class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+            <button id="btn-all-off" class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 transition-all duration-300">
                 ⚡ Desligar Todos
             </button>
         </div>
-        
-        <!-- Indicador de tentativas -->
-        <div id="tentativa-indicator" class="tentativa mt-4 text-center">
-            Tentativa de conexão: 0
+
+        <!-- LOG DE MENSAGENS -->
+        <div class="w-full max-w-6xl mt-6">
+            <div class="bg-black/30 backdrop-blur-xl rounded-2xl p-4 border border-white/10">
+                <p class="text-xs text-adaptive-sub opacity-60 mb-2">📋 LOG DO SISTEMA</p>
+                <div id="log-area" class="log-area text-xs text-adaptive-sub opacity-80">
+                    <p>🔄 Aguardando conexão...</p>
+                </div>
+            </div>
         </div>
     </main>
 
-    <!-- RODAPÉ COM DEBUG -->
     <footer class="w-full text-center pb-4">
         <p class="text-xs text-adaptive-sub opacity-60">
-            <span id="footer-debug" class="font-mono text-[11px]">Aguardando conexão...</span>
+            <span id="footer-debug" class="font-mono text-[11px]">Sistema inicializado</span>
         </p>
     </footer>
 
-    <!-- LÓGICA DE HARDWARE E CONEXÃO MQTT -->
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT PRINCIPAL -->
+    <!-- ========================================== -->
     <script>
-        const PORTS = [8, 9, 10, 13];
-        const DEFAULT_TOPIC = 'led';
+        (function() {
+            'use strict';
 
-        // DOM references
-        const statusPill = document.getElementById("status-pill");
-        const statusDot = document.getElementById("status-dot");
-        const statusText = document.getElementById("status-text");
-        const configModal = document.getElementById("config-modal");
-        const btnConfig = document.getElementById("btn-config");
-        const btnCancel = document.getElementById("btn-cancel");
-        const btnSaveTopic = document.getElementById("btn-save-topic");
-        const footerDebug = document.getElementById("footer-debug");
-        const topicInput = document.getElementById("topic-input");
-        const btnAllOn = document.getElementById("btn-all-on");
-        const btnAllOff = document.getElementById("btn-all-off");
-        const tentativaIndicator = document.getElementById("tentativa-indicator");
+            // ==========================================
+            // CONFIGURAÇÕES
+            // ==========================================
+            const PORTS = [8, 9, 10, 13];
+            const TOPICO_PADRAO = 'led';
+            const BROKER = 'broker.hivemq.com';
+            const PORTA = 8884;
 
-        const ledVirtuals = {};
-        const lampIcons = {};
-        const ledStatusTexts = {};
-        const btnOns = {};
-        const btnOffs = {};
+            // ==========================================
+            // ESTADO
+            // ==========================================
+            let client = null;
+            let conectado = false;
+            let topicoAtual = localStorage.getItem('mqtt_topic') || TOPICO_PADRAO;
+            let ledStates = {8: 0, 9: 0, 10: 0, 13: 0};
+            let tentativas = 0;
+            let timeoutReconectar = null;
 
-        PORTS.forEach(port => {
-            ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
-            lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
-            ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
-            btnOns[port] = document.getElementById(`btn-on-${port}`);
-            btnOffs[port] = document.getElementById(`btn-off-${port}`);
-        });
+            // ==========================================
+            // DOM REFS
+            // ==========================================
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const statusPill = document.getElementById('status-pill');
+            const logArea = document.getElementById('log-area');
+            const footerDebug = document.getElementById('footer-debug');
 
-        // Estado
-        let currentTopic = '';
-        let client = null;
-        let isConnected = false;
-        let ledStates = {};
-        let tentativa = 0;
-        let maxTentativas = 10;
-        let reconnectTimeout = null;
+            const ledVirtuals = {};
+            const lampIcons = {};
+            const ledStatusTexts = {};
+            const btnOns = {};
+            const btnOffs = {};
 
-        // Carrega tópico salvo
-        function loadTopic() {
-            const saved = localStorage.getItem('mqtt_topic');
-            currentTopic = saved || DEFAULT_TOPIC;
-            topicInput.value = currentTopic;
             PORTS.forEach(port => {
-                ledStates[port] = 0;
+                ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
+                lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
+                ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
+                btnOns[port] = document.getElementById(`btn-on-${port}`);
+                btnOffs[port] = document.getElementById(`btn-off-${port}`);
             });
-            console.log("✅ Tópico carregado:", currentTopic);
-        }
 
-        // Log
-        function log(msg) {
-            const time = new Date().toLocaleTimeString();
-            console.log(`[${time}] ${msg}`);
-            footerDebug.textContent = `${msg.substring(0, 80)}...`;
-        }
+            const btnAllOn = document.getElementById('btn-all-on');
+            const btnAllOff = document.getElementById('btn-all-off');
 
-        // Salva tópico
-        function saveTopicToLocalStorage() {
-            localStorage.setItem('mqtt_topic', currentTopic);
-            console.log("💾 Tópico salvo:", currentTopic);
-        }
-
-        // Status visual
-        function setStatus(mode, msg) {
-            statusDot.className = "w-2.5 h-2.5 rounded-full";
-            if (mode === 'sync') {
-                statusDot.classList.add('bg-amber-400', 'pulse-anim');
-                statusText.textContent = msg || 'Sincronizando...';
-                statusText.className = "text-xs font-semibold uppercase tracking-wider text-slate-200";
-                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500";
-            } else if (mode === 'online') {
-                statusDot.classList.add('bg-emerald-400');
-                statusText.textContent = msg || 'Sistema Online';
-                statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
-                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
-            } else if (mode === 'offline') {
-                statusDot.classList.add('bg-rose-500');
-                statusText.textContent = msg || 'Desconectado';
-                statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
-                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
-            } else if (mode === 'connecting') {
-                statusDot.classList.add('bg-blue-400', 'pulse-anim');
-                statusText.textContent = msg || 'Conectando...';
-                statusText.className = "text-xs font-semibold uppercase tracking-wider text-blue-400";
-                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-blue-950/30 border border-blue-500/20 backdrop-blur-md transition-all duration-500";
-            }
-        }
-
-        function setButtonsEnabled(enabled) {
-            PORTS.forEach(port => {
-                if (enabled) {
-                    btnOns[port].disabled = false;
-                    btnOffs[port].disabled = false;
-                    btnOns[port].className = "btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300";
-                    btnOffs[port].className = "btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300";
-                } else {
-                    btnOns[port].disabled = true;
-                    btnOffs[port].disabled = true;
-                    btnOns[port].className = "btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
-                    btnOffs[port].className = "btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+            // ==========================================
+            // FUNÇÕES DE LOG
+            // ==========================================
+            function log(mensagem) {
+                const time = new Date().toLocaleTimeString();
+                const msg = `[${time}] ${mensagem}`;
+                console.log(msg);
+                
+                const p = document.createElement('p');
+                p.textContent = msg;
+                logArea.appendChild(p);
+                
+                // Mantém apenas 20 mensagens
+                while (logArea.children.length > 20) {
+                    logArea.removeChild(logArea.firstChild);
                 }
+                logArea.scrollTop = logArea.scrollHeight;
+                
+                footerDebug.textContent = mensagem.substring(0, 80);
+            }
+
+            // ==========================================
+            // FUNÇÕES DE STATUS
+            // ==========================================
+            function setStatus(modo, mensagem) {
+                statusDot.className = 'w-2.5 h-2.5 rounded-full';
+                
+                if (modo === 'conectando') {
+                    statusDot.classList.add('bg-yellow-400', 'pulse-anim');
+                    statusText.textContent = mensagem || 'Conectando...';
+                    statusText.className = 'text-xs font-semibold uppercase tracking-wider text-yellow-400';
+                    statusPill.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-950/30 border border-yellow-500/20 backdrop-blur-md transition-all duration-500';
+                } else if (modo === 'online') {
+                    statusDot.classList.add('bg-emerald-400');
+                    statusText.textContent = mensagem || 'Sistema Online';
+                    statusText.className = 'text-xs font-semibold uppercase tracking-wider text-emerald-400';
+                    statusPill.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500';
+                } else if (modo === 'offline') {
+                    statusDot.classList.add('bg-red-500');
+                    statusText.textContent = mensagem || 'Desconectado';
+                    statusText.className = 'text-xs font-semibold uppercase tracking-wider text-red-400';
+                    statusPill.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-red-950/30 border border-red-500/20 backdrop-blur-md transition-all duration-500';
+                }
+            }
+
+            // ==========================================
+            // FUNÇÕES DA INTERFACE
+            // ==========================================
+            function updateLedUI(port, state) {
+                if (state === 1) {
+                    ledVirtuals[port].className = 'w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out';
+                    lampIcons[port].setAttribute('class', 'w-16 h-16 text-orange-500 transition-colors duration-700');
+                    ledStatusTexts[port].innerText = 'Ativo';
+                    btnOns[port].classList.add('active');
+                    btnOffs[port].classList.remove('active');
+                } else {
+                    ledVirtuals[port].className = 'w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out';
+                    lampIcons[port].setAttribute('class', 'w-16 h-16 text-slate-500/60 transition-colors duration-700');
+                    ledStatusTexts[port].innerText = 'Inativo';
+                    btnOns[port].classList.remove('active');
+                    btnOffs[port].classList.add('active');
+                }
+                ledStates[port] = state;
+            }
+
+            function updateAllLEDs(state) {
+                PORTS.forEach(port => updateLedUI(port, state));
+            }
+
+            // ==========================================
+            // FUNÇÕES MQTT
+            // ==========================================
+            function publicar(comando) {
+                if (!client || !conectado) {
+                    log('❌ Não conectado ao MQTT');
+                    return;
+                }
+                if (!topicoAtual || topicoAtual.length === 0) {
+                    log('❌ Tópico inválido');
+                    return;
+                }
+                try {
+                    const msg = new Paho.MQTT.Message(comando);
+                    msg.destinationName = topicoAtual;
+                    msg.qos = 1;
+                    client.send(msg);
+                    log(`📤 Publicado: ${comando}`);
+                } catch (e) {
+                    log(`❌ Erro ao publicar: ${e}`);
+                }
+            }
+
+            function conectarMQTT() {
+                if (timeoutReconectar) {
+                    clearTimeout(timeoutReconectar);
+                    timeoutReconectar = null;
+                }
+
+                tentativas++;
+                log(`🔄 Tentativa ${tentativas} de conexão...`);
+                setStatus('conectando', `Conectando (${tentativas})...`);
+
+                if (client) {
+                    try { client.disconnect(); } catch(e) {}
+                    client = null;
+                }
+
+                const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
+                
+                try {
+                    client = new Paho.MQTT.Client(BROKER, PORTA, clientId);
+                    client.useSSL = true;
+
+                    client.onConnectionLost = function(response) {
+                        conectado = false;
+                        log('⚠️ Conexão perdida');
+                        setStatus('offline', 'Conexão perdida');
+                        
+                        timeoutReconectar = setTimeout(function() {
+                            if (!conectado) {
+                                conectarMQTT();
+                            }
+                        }, 3000);
+                    };
+
+                    client.onMessageArrived = function(message) {
+                        const payload = message.payloadString.trim();
+                        log(`📨 Recebido: ${payload}`);
+                        
+                        // Processa comandos
+                        if (payload.startsWith('LED')) {
+                            const parts = payload.split('_');
+                            if (parts.length === 2) {
+                                const port = parseInt(parts[0].replace('LED', ''));
+                                const acao = parts[1];
+                                if (PORTS.includes(port)) {
+                                    if (acao === 'ON') {
+                                        updateLedUI(port, 1);
+                                        log(`💡 LED${port} LIGADO`);
+                                    } else if (acao === 'OFF') {
+                                        updateLedUI(port, 0);
+                                        log(`💡 LED${port} DESLIGADO`);
+                                    }
+                                }
+                            }
+                        } else if (payload === 'ALLON') {
+                            updateAllLEDs(1);
+                            log('💡 Todos LIGADOS');
+                        } else if (payload === 'ALLOFF') {
+                            updateAllLEDs(0);
+                            log('💡 Todos DESLIGADOS');
+                        }
+                    };
+
+                    const onConnect = function() {
+                        conectado = true;
+                        tentativas = 0;
+                        log('✅ Conectado ao MQTT HiveMQ!');
+                        setStatus('online', 'Sistema Online');
+                        
+                        client.subscribe(topicoAtual, {qos: 1});
+                        log(`📥 Inscrito em: ${topicoAtual}`);
+                    };
+
+                    const onFailure = function(err) {
+                        conectado = false;
+                        log(`❌ Falha: ${err.errorMessage || 'Erro desconhecido'}`);
+                        setStatus('offline', 'Falha na conexão');
+                        
+                        timeoutReconectar = setTimeout(function() {
+                            if (!conectado) {
+                                conectarMQTT();
+                            }
+                        }, 5000);
+                    };
+
+                    client.connect({
+                        timeout: 10,
+                        onSuccess: onConnect,
+                        onFailure: onFailure,
+                        useSSL: true,
+                        cleanSession: true
+                    });
+
+                } catch (e) {
+                    log(`❌ Erro ao criar cliente: ${e}`);
+                    timeoutReconectar = setTimeout(function() {
+                        if (!conectado) {
+                            conectarMQTT();
+                        }
+                    }, 5000);
+                }
+            }
+
+            // ==========================================
+            // EVENTOS DOS BOTÕES
+            // ==========================================
+            PORTS.forEach(port => {
+                btnOns[port].addEventListener('click', function() {
+                    const cmd = `LED${port}_ON`;
+                    publicar(cmd);
+                    updateLedUI(port, 1);
+                });
+                
+                btnOffs[port].addEventListener('click', function() {
+                    const cmd = `LED${port}_OFF`;
+                    publicar(cmd);
+                    updateLedUI(port, 0);
+                });
             });
-            
-            if (enabled) {
-                btnAllOn.disabled = false;
-                btnAllOff.disabled = false;
-                btnAllOn.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300";
-                btnAllOff.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300";
+
+            btnAllOn.addEventListener('click', function() {
+                publicar('ALLON');
+                updateAllLEDs(1);
+            });
+
+            btnAllOff.addEventListener('click', function() {
+                publicar('ALLOFF');
+                updateAllLEDs(0);
+            });
+
+            // ==========================================
+            // INICIALIZAÇÃO
+            // ==========================================
+            function init() {
+                log('🚀 Inicializando sistema...');
+                setStatus('offline', 'Desconectado');
+                
+                // Estado inicial dos LEDs
+                PORTS.forEach(port => {
+                    updateLedUI(port, 0);
+                });
+                
+                // Conecta ao MQTT
+                conectarMQTT();
+            }
+
+            // Inicia quando a página carregar
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
             } else {
-                btnAllOn.disabled = true;
-                btnAllOff.disabled = true;
-                btnAllOn.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed";
-                btnAllOff.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed";
-            }
-        }
-
-        function updateLedUI(port, state) {
-            console.log(`🔄 Atualizando LED porta ${port} para estado: ${state}`);
-            if (state === 1) {
-                ledVirtuals[port].className = "w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
-                lampIcons[port].setAttribute("class", "w-16 h-16 text-orange-500 transition-colors duration-700");
-                ledStatusTexts[port].innerText = "Ativo";
-                btnOns[port].classList.add('active');
-                btnOffs[port].classList.remove('active');
-            } else {
-                ledVirtuals[port].className = "w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
-                lampIcons[port].setAttribute("class", "w-16 h-16 text-slate-500/60 transition-colors duration-700");
-                ledStatusTexts[port].innerText = "Inativo";
-                btnOns[port].classList.remove('active');
-                btnOffs[port].classList.add('active');
-            }
-            ledStates[port] = state;
-        }
-
-        // ==========================================
-        // CONEXÃO MQTT - CORRIGIDA COM TRATAMENTO DE ERRO
-        // ==========================================
-        function connectMqtt() {
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-                reconnectTimeout = null;
+                init();
             }
 
-            tentativa++;
-            tentativaIndicator.textContent = `Tentativa de conexão: ${tentativa}`;
+            // Debug no console
+            window.__iot = {
+                client: client,
+                conectado: conectado,
+                topico: topicoAtual,
+                publicar: publicar,
+                reconectar: conectarMQTT,
+                ledStates: ledStates
+            };
 
-            if (tentativa > maxTentativas) {
-                log(`❌ Número máximo de tentativas (${maxTentativas}) atingido.`);
-                setStatus('offline', 'Falha na conexão');
-                setButtonsEnabled(false);
-                tentativaIndicator.textContent = `❌ Falha após ${maxTentativas} tentativas`;
-                return;
-            }
-
-            log(`🔌 Tentativa ${tentativa} de ${maxTentativas} - Conectando ao MQTT via SSL (porta 8884)...`);
-            setStatus('connecting', `Conectando (${tentativa}/${maxTentativas})...`);
-            
-            if (client) {
-                try { client.disconnect(); } catch (_) {}
-                client = null;
-            }
-
-            // CONFIGURAÇÃO PARA PORTA 8884 COM SSL
-            const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
-            const broker = 'broker.hivemq.com';
-            const port = 8884;
-            
-            try {
-                // Cria cliente com WebSocket
-                client = new Paho.MQTT.Client(broker, port, clientId);
-                client.useSSL = true;
-
-                // Callback de conexão bem-sucedida
-                const onConnect = () => {
-                    isConnected = true;
-                    tentativa = 0;
-                    tentativaIndicator.textContent = '✅ Conectado!';
-                    log("✅ Conectado ao MQTT HiveMQ via SSL!");
-                    setStatus('online', 'Sistema Online');
-                    setButtonsEnabled(true);
-                    
-                    // Inscrever no tópico
-                    if (currentTopic && currentTopic.length > 0) {
-                        client.subscribe(currentTopic, { qos: 1 });
-                        log(`📥 Inscrito em: ${currentTopic}`);
-                    }
-                };
-
-                // Callback de falha na conexão
-                const onFailure = (err) => {
-                    isConnected = false;
-                    const erroMsg = err.errorMessage || err || 'Erro desconhecido';
-                    log(`❌ Falha na conexão (${tentativa}/${maxTentativas}): ${erroMsg}`);
-                    setStatus('offline', `Falha (${tentativa}/${maxTentativas})`);
-                    setButtonsEnabled(false);
-                    console.error('[MQTT] Erro:', err);
-                    
-                    // Tentar reconectar após 3 segundos
-                    reconnectTimeout = setTimeout(() => {
-                        if (!isConnected) {
-                            connectMqtt();
-                        }
-                    }, 3000);
-                };
-
-                // Callback de perda de conexão
-                const onConnectionLost = (response) => {
-                    isConnected = false;
-                    log("⚠️ Conexão MQTT perdida");
-                    setStatus('offline', 'Conexão perdida');
-                    setButtonsEnabled(false);
-                    
-                    // Tentar reconectar após 3 segundos
-                    reconnectTimeout = setTimeout(() => {
-                        if (!isConnected) {
-                            connectMqtt();
-                        }
-                    }, 3000);
-                };
-
-                // Callback de mensagem recebida
-                const onMessageArrived = (message) => {
-                    const payload = message.payloadString.trim();
-                    const topic = message.destinationName;
-                    log(`📨 Mensagem recebida | Tópico: ${topic} | Payload: ${payload}`);
-
-                    if (payload.startsWith('LED')) {
-                        const ledNum = parseInt(payload.replace('LED
+        })();
+    </script>
+</body>
+</html>
