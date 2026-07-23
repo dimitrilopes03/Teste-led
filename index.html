@@ -40,56 +40,57 @@
         .card-grafico { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
 
         /* ========================================== */
-        /* BARGRAPH - Estilo vertical */
+        /* BARGRAPH - Horizontal */
         /* ========================================== */
         .bargraph-container {
-            width: 40px;
-            height: 120px;
+            width: 100%;
+            height: 32px;
             background: #1e293b;
-            border-radius: 20px;
+            border-radius: 16px;
             position: relative;
             cursor: pointer;
             overflow: hidden;
-            border: 2px solid rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.08);
             touch-action: none;
             user-select: none;
+            margin: 4px 0;
         }
 
         .bargraph-fill {
             position: absolute;
-            bottom: 0;
+            top: 0;
             left: 0;
-            right: 0;
-            background: linear-gradient(to top, #fbbf24, #f59e0b, #f97316);
-            border-radius: 0 0 20px 20px;
-            transition: height 0.1s ease;
-            height: 0%;
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+            bottom: 0;
+            background: linear-gradient(to right, #fbbf24, #f59e0b, #f97316);
+            border-radius: 14px;
+            transition: width 0.1s ease;
+            width: 0%;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
         }
 
         .bargraph-fill::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: 10%;
-            right: 10%;
-            height: 3px;
-            background: rgba(255,255,255,0.2);
+            top: 4px;
+            bottom: 4px;
+            right: 8px;
+            width: 4px;
+            background: rgba(255,255,255,0.15);
             border-radius: 2px;
         }
 
         .bargraph-indicator {
             position: absolute;
-            right: -8px;
-            width: 16px;
-            height: 16px;
+            top: 50%;
+            width: 20px;
+            height: 20px;
             background: #f59e0b;
             border-radius: 50%;
-            transform: translateY(-50%);
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
             border: 2px solid #fff;
             pointer-events: none;
-            transition: top 0.1s ease;
+            transition: left 0.1s ease;
             display: none;
         }
 
@@ -100,28 +101,31 @@
         /* Marcadores de nível */
         .bargraph-markers {
             position: absolute;
-            right: -20px;
             top: 0;
+            left: 0;
+            right: 0;
             bottom: 0;
             display: flex;
-            flex-direction: column;
             justify-content: space-between;
-            padding: 5px 0;
+            padding: 0 8px;
+            pointer-events: none;
+            align-items: center;
         }
 
         .bargraph-marker {
             font-size: 7px;
-            color: #64748b;
+            color: rgba(255,255,255,0.15);
             line-height: 1;
+            font-weight: 600;
         }
 
         /* Valor do bargraph */
         .bargraph-value {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700;
             color: #f59e0b;
             text-align: center;
-            margin-top: 6px;
+            min-width: 50px;
         }
         .bargraph-label {
             font-size: 9px;
@@ -150,6 +154,20 @@
             font-size: 10px;
             color: #64748b;
         }
+
+        /* Grid dos LEDs */
+        .led-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .led-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-4 md:p-6">
@@ -172,8 +190,8 @@
     <!-- CONTEÚDO PRINCIPAL -->
     <main class="flex-grow flex flex-col items-center justify-center my-4 w-full">
         
-        <!-- LEDS -->
-        <div class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- LEDS - Grid 4 colunas -->
+        <div class="w-full max-w-6xl led-grid">
             
             <!-- LED 8 -->
             <div class="card-led rounded-xl p-4 flex flex-col items-center">
@@ -209,7 +227,7 @@
                 </div>
             </div>
 
-            <!-- LED 10 - BARGRAPH -->
+            <!-- LED 10 - BARGRAPH HORIZONTAL -->
             <div class="card-led rounded-xl p-4 flex flex-col items-center">
                 <p class="text-[10px] text-slate-500 mb-1">Porta 10 (PWM)</p>
                 
@@ -223,21 +241,29 @@
                     <span id="led-status-text-10" class="absolute -bottom-1 text-[10px] font-semibold text-slate-400">0%</span>
                 </div>
 
-                <!-- BARGRAPH -->
-                <div class="flex items-center gap-3">
-                    <div class="bargraph-container" id="bargraph-container">
-                        <div class="bargraph-fill" id="bargraph-fill" style="height: 0%;"></div>
-                        <div class="bargraph-indicator" id="bargraph-indicator" style="top: 100%;"></div>
+                <!-- BARGRAPH HORIZONTAL -->
+                <div class="w-full">
+                    <div class="flex items-center gap-3">
+                        <span class="text-[9px] text-slate-500 font-mono w-8 text-right">0</span>
+                        <div class="flex-1 bargraph-container" id="bargraph-container">
+                            <div class="bargraph-fill" id="bargraph-fill" style="width: 0%;"></div>
+                            <div class="bargraph-indicator" id="bargraph-indicator" style="left: 0%;"></div>
+                            <div class="bargraph-markers">
+                                <span class="bargraph-marker">25%</span>
+                                <span class="bargraph-marker">50%</span>
+                                <span class="bargraph-marker">75%</span>
+                                <span class="bargraph-marker">100%</span>
+                            </div>
+                        </div>
+                        <span class="text-[9px] text-slate-500 font-mono w-8 text-left">255</span>
                     </div>
                     
-                    <div class="flex flex-col items-center">
-                        <span class="bargraph-value" id="bargraph-value">0%</span>
+                    <div class="flex items-center justify-between mt-1">
                         <span class="bargraph-label">Intensidade</span>
+                        <span class="bargraph-value" id="bargraph-value">0%</span>
+                        <span class="bargraph-label" id="label-pwm">PWM: 0</span>
                     </div>
                 </div>
-
-                <!-- Valor PWM -->
-                <p id="label-pwm" class="text-[9px] text-slate-500 mt-1">PWM: 0/255</p>
             </div>
 
             <!-- LED 13 -->
@@ -345,7 +371,7 @@
                 btnOffs[port] = document.getElementById(`btn-off-${port}`);
             });
 
-            // LED10 - Bargraph
+            // LED10 - Bargraph Horizontal
             const ledVirtual10 = document.getElementById('led-virtual-10');
             const lampIcon10 = document.getElementById('lamp-icon-10');
             const ledStatus10 = document.getElementById('led-status-text-10');
@@ -447,19 +473,18 @@
             }
 
             // ==========================================
-            // LED UI - PWM (Bargraph)
+            // LED UI - PWM (Bargraph Horizontal)
             // ==========================================
             function updateLedPWM(intensidade) {
                 const percentual = Math.round((intensidade / 255) * 100);
                 intensidade10 = intensidade;
                 ledStates[10] = intensidade > 0 ? 1 : 0;
 
-                // Atualiza o bargraph
-                const altura = 100 - percentual;
-                bargraphFill.style.height = percentual + '%';
-                bargraphIndicator.style.top = altura + '%';
+                // Atualiza o bargraph horizontal
+                bargraphFill.style.width = percentual + '%';
+                bargraphIndicator.style.left = percentual + '%';
                 bargraphValue.textContent = percentual + '%';
-                labelPwm.textContent = `PWM: ${intensidade}/255`;
+                labelPwm.textContent = `PWM: ${intensidade}`;
 
                 // Atualiza a lâmpada
                 if (intensidade > 0) {
@@ -510,11 +535,10 @@
             // ==========================================
             function calcularIntensidade(event) {
                 const rect = bargraphContainer.getBoundingClientRect();
-                const y = event.clientY - rect.top;
-                const altura = rect.height;
+                const x = (event.clientX || event.pageX) - rect.left;
+                const largura = rect.width;
                 
-                // Inverte: clique em cima = mais intensidade
-                let percentual = 1 - (y / altura);
+                let percentual = x / largura;
                 percentual = Math.max(0, Math.min(1, percentual));
                 
                 const valor = Math.round(percentual * 255);
@@ -555,10 +579,6 @@
                 const touch = e.touches[0];
                 onBargraphInteraction(touch);
             }, {passive: false});
-
-            bargraphContainer.addEventListener('touchend', function(e) {
-                // Não faz nada
-            });
 
             // ==========================================
             // MQTT
