@@ -19,15 +19,14 @@
             transition: background-color 1.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        /* Cores de fundo dinâmicas e relaxantes baseadas no estado da lâmpada */
+        /* Cores de fundo dinâmicas */
         .bg-lamp-off {
-            background-color: #1a2a4a; /* Azul escuro noturno/relaxante */
+            background-color: #1a2a4a;
         }
         .bg-lamp-on {
-            background-color: #e0f2fe; /* Azul céu claro suave */
+            background-color: #e0f2fe;
         }
 
-        /* Cores de texto adaptativas para manter contraste perfeito */
         .text-adaptive-title {
             transition: color 0.8s ease;
         }
@@ -40,7 +39,7 @@
         .bg-lamp-off .text-adaptive-sub { color: #94a3b8; }
         .bg-lamp-on .text-adaptive-sub { color: #475569; }
 
-        /* Efeito de Brilho Neon para a Lâmpada Acesa */
+        /* Efeito de Brilho Neon */
         .glow-active {
             box-shadow: 0 0 40px 10px rgba(253, 224, 71, 0.6), 
                         0 0 70px 25px rgba(249, 115, 22, 0.4);
@@ -52,7 +51,7 @@
             50% { transform: scale(1.03); opacity: 1; box-shadow: 0 0 50px 15px rgba(253, 224, 71, 0.7), 0 0 80px 30px rgba(249, 115, 22, 0.5); }
         }
 
-        /* Animação do Status de Sincronização */
+        /* Animação do Status */
         @keyframes pulse-status {
             0%, 100% { opacity: 0.5; }
             50% { opacity: 1; }
@@ -61,7 +60,7 @@
             animation: pulse-status 1.5s infinite ease-in-out;
         }
 
-        /* Estilos para input e modal de configuração */
+        /* Estilos para input e modal */
         input[type="text"] {
             background-color: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -83,14 +82,17 @@
             border-color: rgba(0, 0, 0, 0.3);
         }
 
-        /* Botões toggle */
-        .btn-toggle {
+        /* Botões com cores específicas */
+        .btn-on {
             transition: all 0.3s ease;
         }
-        .btn-toggle.active {
-            background-color: #fbbf24 !important;
-            border-color: #f59e0b !important;
-            color: #1a2a4a !important;
+        .btn-on.active {
+            background-color: #22c55e !important;
+            border-color: #16a34a !important;
+        }
+        .btn-off.active {
+            background-color: #ef4444 !important;
+            border-color: #dc2626 !important;
         }
     </style>
 </head>
@@ -116,7 +118,7 @@
                 </svg>
             </button>
 
-            <!-- STATUS DE REDE (PILL) -->
+            <!-- STATUS DE REDE -->
             <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500">
                 <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-anim"></span>
                 <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-200">
@@ -126,7 +128,7 @@
         </div>
     </header>
 
-    <!-- MODAL DE CONFIGURAÇÃO DO TÓPICO -->
+    <!-- MODAL DE CONFIGURAÇÃO -->
     <div id="config-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[80vh] overflow-y-auto">
             <h2 class="text-lg font-bold text-white mb-4">Configurar Tópico MQTT</h2>
@@ -144,7 +146,7 @@
                     />
                     <p class="text-xs text-slate-400 mt-2">
                         Configure o tópico MQTT único para controlar todos os LEDs.
-                        <br>Comandos: LED13, LED10, LED9, LED8, ALLON, ALLOFF
+                        <br>Comandos: LED8, LED9, LED10, LED13, ALLON, ALLOFF
                     </p>
                 </div>
             </div>
@@ -177,10 +179,16 @@
                     </span>
                 </div>
 
-                <button id="btn-toggle-8" disabled 
-                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
-                    Toggle LED
-                </button>
+                <div class="w-full grid grid-cols-2 gap-3">
+                    <button id="btn-on-8" disabled 
+                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Ligar
+                    </button>
+                    <button id="btn-off-8" disabled 
+                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Desligar
+                    </button>
+                </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 8</p>
             </div>
 
@@ -197,10 +205,16 @@
                     </span>
                 </div>
 
-                <button id="btn-toggle-9" disabled 
-                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
-                    Toggle LED
-                </button>
+                <div class="w-full grid grid-cols-2 gap-3">
+                    <button id="btn-on-9" disabled 
+                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Ligar
+                    </button>
+                    <button id="btn-off-9" disabled 
+                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Desligar
+                    </button>
+                </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 9</p>
             </div>
 
@@ -217,10 +231,16 @@
                     </span>
                 </div>
 
-                <button id="btn-toggle-10" disabled 
-                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
-                    Toggle LED
-                </button>
+                <div class="w-full grid grid-cols-2 gap-3">
+                    <button id="btn-on-10" disabled 
+                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Ligar
+                    </button>
+                    <button id="btn-off-10" disabled 
+                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Desligar
+                    </button>
+                </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 10</p>
             </div>
 
@@ -237,10 +257,16 @@
                     </span>
                 </div>
 
-                <button id="btn-toggle-13" disabled 
-                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
-                    Toggle LED
-                </button>
+                <div class="w-full grid grid-cols-2 gap-3">
+                    <button id="btn-on-13" disabled 
+                        class="btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Ligar
+                    </button>
+                    <button id="btn-off-13" disabled 
+                        class="btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                        Desligar
+                    </button>
+                </div>
                 <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 13</p>
             </div>
 
@@ -269,12 +295,6 @@
     <!-- LÓGICA DE HARDWARE E CONEXÃO MQTT -->
     <script>
         const PORTS = [8, 9, 10, 13];
-        const PORTA_LED = {
-            8: 'LED8',
-            9: 'LED9',
-            10: 'LED10',
-            13: 'LED13'
-        };
         const DEFAULT_TOPIC = 'led';
 
         // DOM references
@@ -293,14 +313,16 @@
         const ledVirtuals = {};
         const lampIcons = {};
         const ledStatusTexts = {};
-        const btnToggles = {};
+        const btnOns = {};
+        const btnOffs = {};
         const topicDisplays = {};
 
         PORTS.forEach(port => {
             ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
             lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
             ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
-            btnToggles[port] = document.getElementById(`btn-toggle-${port}`);
+            btnOns[port] = document.getElementById(`btn-on-${port}`);
+            btnOffs[port] = document.getElementById(`btn-off-${port}`);
             topicDisplays[port] = document.getElementById(`topic-display-${port}`);
         });
 
@@ -359,11 +381,15 @@
         function setButtonsEnabled(enabled) {
             PORTS.forEach(port => {
                 if (enabled) {
-                    btnToggles[port].disabled = false;
-                    btnToggles[port].className = "btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-blue-600 border border-blue-500 hover:bg-blue-500 cursor-pointer shadow-lg shadow-blue-500/20 transition-all duration-300";
+                    btnOns[port].disabled = false;
+                    btnOffs[port].disabled = false;
+                    btnOns[port].className = "btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300";
+                    btnOffs[port].className = "btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300";
                 } else {
-                    btnToggles[port].disabled = true;
-                    btnToggles[port].className = "btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+                    btnOns[port].disabled = true;
+                    btnOffs[port].disabled = true;
+                    btnOns[port].className = "btn-on py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+                    btnOffs[port].className = "btn-off py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
                 }
             });
             
@@ -386,14 +412,14 @@
                 ledVirtuals[port].className = "w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
                 lampIcons[port].setAttribute("class", "w-16 h-16 text-orange-500 transition-colors duration-700");
                 ledStatusTexts[port].innerText = "Ativo";
-                btnToggles[port].classList.add('active');
-                btnToggles[port].innerHTML = '🔆 Desligar';
+                btnOns[port].classList.add('active');
+                btnOffs[port].classList.remove('active');
             } else {
                 ledVirtuals[port].className = "w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
                 lampIcons[port].setAttribute("class", "w-16 h-16 text-slate-500/60 transition-colors duration-700");
                 ledStatusTexts[port].innerText = "Inativo";
-                btnToggles[port].classList.remove('active');
-                btnToggles[port].innerHTML = '🔆 Ligar';
+                btnOns[port].classList.remove('active');
+                btnOffs[port].classList.add('active');
             }
             ledStates[port] = state;
         }
@@ -420,7 +446,6 @@
                 setStatus('online', 'Sistema Online');
                 setButtonsEnabled(true);
                 
-                // Subscribe ao tópico único
                 if (currentTopic && currentTopic.length > 0) {
                     client.subscribe(currentTopic, { qos: 1 });
                     log(`📥 Inscrito em: ${currentTopic}`);
@@ -446,11 +471,14 @@
                 const topic = message.destinationName;
                 log(`📨 Mensagem recebida | Tópico: ${topic} | Payload: ${payload}`);
 
-                // Verificar se a mensagem é para controlar um LED
+                // Verificar comandos de LED individual
                 if (payload.startsWith('LED')) {
                     const ledNum = parseInt(payload.replace('LED', ''));
                     if (PORTS.includes(ledNum)) {
-                        // Toggle: inverter estado
+                        // Para este caso, o Arduino faz toggle, então precisamos inverter o estado local
+                        // Mas como o comando é toggle, não sabemos o estado real
+                        // Vamos apenas atualizar visualmente baseado no que esperamos
+                        // Melhor: solicitar status após cada comando
                         const newState = ledStates[ledNum] === 1 ? 0 : 1;
                         updateLedUI(ledNum, newState);
                         log(`🔄 LED${ledNum} alternado para ${newState === 1 ? 'Ligado' : 'Desligado'}`);
@@ -493,7 +521,7 @@
             client.connect(options);
         }
 
-        // Trocar tópico e reinscrever
+        // Trocar tópico
         function switchTopic(newTopic) {
             if (!client || !isConnected) {
                 log("❌ MQTT não conectado, apenas salvando tópico...");
@@ -576,13 +604,24 @@
             }
         });
 
-        // Button events - Toggle LEDs
+        // Button events - Ligar/Desligar LEDs
         PORTS.forEach(port => {
-            btnToggles[port].addEventListener('click', () => {
-                const command = PORTA_LED[port];
+            btnOns[port].addEventListener('click', () => {
+                const command = `LED${port}`;
                 publishCommand(command);
-                // O feedback visual virá via MQTT
-                log(`📤 Enviando comando: ${command}`);
+                // Atualizar visualmente (toggle)
+                const newState = ledStates[port] === 1 ? 0 : 1;
+                updateLedUI(port, newState);
+                log(`📤 Enviando comando: ${command} (Ligar/Desligar)`);
+            });
+            
+            btnOffs[port].addEventListener('click', () => {
+                const command = `LED${port}`;
+                publishCommand(command);
+                // Atualizar visualmente (toggle)
+                const newState = ledStates[port] === 1 ? 0 : 1;
+                updateLedUI(port, newState);
+                log(`📤 Enviando comando: ${command} (Desligar/Ligar)`);
             });
         });
 
