@@ -38,68 +38,103 @@
 
         .card-led { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
         .card-grafico { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        
-        .barra-intensidade {
-            width: 100%;
-            height: 6px;
+
+        /* ========================================== */
+        /* BARGRAPH - Estilo vertical */
+        /* ========================================== */
+        .bargraph-container {
+            width: 40px;
+            height: 120px;
             background: #1e293b;
-            border-radius: 3px;
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
             overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.1);
+            touch-action: none;
+            user-select: none;
+        }
+
+        .bargraph-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #fbbf24, #f59e0b, #f97316);
+            border-radius: 0 0 20px 20px;
+            transition: height 0.1s ease;
+            height: 0%;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+        }
+
+        .bargraph-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 10%;
+            right: 10%;
+            height: 3px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+
+        .bargraph-indicator {
+            position: absolute;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            background: #f59e0b;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+            border: 2px solid #fff;
+            pointer-events: none;
+            transition: top 0.1s ease;
+            display: none;
+        }
+
+        .bargraph-container:hover .bargraph-indicator {
+            display: block;
+        }
+
+        /* Marcadores de nível */
+        .bargraph-markers {
+            position: absolute;
+            right: -20px;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .bargraph-marker {
+            font-size: 7px;
+            color: #64748b;
+            line-height: 1;
+        }
+
+        /* Valor do bargraph */
+        .bargraph-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f59e0b;
+            text-align: center;
             margin-top: 6px;
         }
-        .barra-intensidade .preenchimento {
-            height: 100%;
-            background: linear-gradient(90deg, #fbbf24, #f59e0b);
-            border-radius: 3px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-        .label-intensidade {
-            font-size: 10px;
-            color: #94a3b8;
+        .bargraph-label {
+            font-size: 9px;
+            color: #64748b;
             text-align: center;
-            margin-top: 4px;
         }
 
-        /* Slider personalizado */
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 4px;
-            background: #1e293b;
-            border-radius: 2px;
-            outline: none;
-            transition: background 0.3s;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #f59e0b;
-            cursor: pointer;
-            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
-            transition: all 0.2s;
-        }
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #f59e0b;
-            cursor: pointer;
-            border: none;
-        }
-
-        /* Gráfico compacto */
+        /* ========================================== */
+        /* GRÁFICO COMPACTO */
+        /* ========================================== */
         .grafico-wrapper {
             position: relative;
-            height: 80px;
+            height: 70px;
         }
         .grafico-wrapper canvas {
             width: 100% !important;
@@ -107,7 +142,7 @@
         }
         
         .valor-pot {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #60a5fa;
         }
@@ -174,26 +209,35 @@
                 </div>
             </div>
 
-            <!-- LED 10 - PWM com Slider -->
+            <!-- LED 10 - BARGRAPH -->
             <div class="card-led rounded-xl p-4 flex flex-col items-center">
                 <p class="text-[10px] text-slate-500 mb-1">Porta 10 (PWM)</p>
-                <div class="relative w-24 h-24 flex flex-col items-center justify-center mb-2">
-                    <div id="led-virtual-10" class="w-16 h-16 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
-                        <svg id="lamp-icon-10" class="w-8 h-8 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                
+                <!-- Lâmpada -->
+                <div class="relative w-24 h-16 flex items-center justify-center mb-1">
+                    <div id="led-virtual-10" class="w-12 h-12 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
+                        <svg id="lamp-icon-10" class="w-6 h-6 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
                         </svg>
                     </div>
-                    <span id="led-status-text-10" class="text-[10px] font-semibold text-slate-400">0%</span>
+                    <span id="led-status-text-10" class="absolute -bottom-1 text-[10px] font-semibold text-slate-400">0%</span>
                 </div>
-                
-                <!-- Slider -->
-                <div class="w-full px-2">
-                    <input type="range" id="slider-10" min="0" max="255" value="0" class="w-full">
-                    <div class="barra-intensidade">
-                        <div id="barra-10" class="preenchimento" style="width: 0%;"></div>
+
+                <!-- BARGRAPH -->
+                <div class="flex items-center gap-3">
+                    <div class="bargraph-container" id="bargraph-container">
+                        <div class="bargraph-fill" id="bargraph-fill" style="height: 0%;"></div>
+                        <div class="bargraph-indicator" id="bargraph-indicator" style="top: 100%;"></div>
                     </div>
-                    <p id="label-intensidade-10" class="label-intensidade text-[9px]">0% (0/255)</p>
+                    
+                    <div class="flex flex-col items-center">
+                        <span class="bargraph-value" id="bargraph-value">0%</span>
+                        <span class="bargraph-label">Intensidade</span>
+                    </div>
                 </div>
+
+                <!-- Valor PWM -->
+                <p id="label-pwm" class="text-[9px] text-slate-500 mt-1">PWM: 0/255</p>
             </div>
 
             <!-- LED 13 -->
@@ -276,6 +320,7 @@
             let intensidade10 = 0;
             let tentativas = 0;
             let dadosPot = [];
+            let arrastando = false;
 
             // ==========================================
             // DOM
@@ -300,12 +345,15 @@
                 btnOffs[port] = document.getElementById(`btn-off-${port}`);
             });
 
+            // LED10 - Bargraph
             const ledVirtual10 = document.getElementById('led-virtual-10');
             const lampIcon10 = document.getElementById('lamp-icon-10');
             const ledStatus10 = document.getElementById('led-status-text-10');
-            const barra10 = document.getElementById('barra-10');
-            const label10 = document.getElementById('label-intensidade-10');
-            const slider10 = document.getElementById('slider-10');
+            const bargraphContainer = document.getElementById('bargraph-container');
+            const bargraphFill = document.getElementById('bargraph-fill');
+            const bargraphIndicator = document.getElementById('bargraph-indicator');
+            const bargraphValue = document.getElementById('bargraph-value');
+            const labelPwm = document.getElementById('label-pwm');
 
             const btnAllOn = document.getElementById('btn-all-on');
             const btnAllOff = document.getElementById('btn-all-off');
@@ -333,29 +381,14 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            display: false
-                        }
+                        legend: { display: false }
                     },
                     scales: {
-                        x: {
-                            display: false,
-                            grid: { display: false }
-                        },
-                        y: {
-                            min: 0,
-                            max: 1023,
-                            display: false,
-                            grid: { display: false }
-                        }
+                        x: { display: false, grid: { display: false } },
+                        y: { min: 0, max: 1023, display: false, grid: { display: false } }
                     },
-                    animation: {
-                        duration: 200
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'nearest'
-                    }
+                    animation: { duration: 200 },
+                    interaction: { intersect: false, mode: 'nearest' }
                 }
             });
 
@@ -414,32 +447,35 @@
             }
 
             // ==========================================
-            // LED UI - PWM
+            // LED UI - PWM (Bargraph)
             // ==========================================
             function updateLedPWM(intensidade) {
                 const percentual = Math.round((intensidade / 255) * 100);
                 intensidade10 = intensidade;
                 ledStates[10] = intensidade > 0 ? 1 : 0;
 
-                slider10.value = intensidade;
+                // Atualiza o bargraph
+                const altura = 100 - percentual;
+                bargraphFill.style.height = percentual + '%';
+                bargraphIndicator.style.top = altura + '%';
+                bargraphValue.textContent = percentual + '%';
+                labelPwm.textContent = `PWM: ${intensidade}/255`;
 
+                // Atualiza a lâmpada
                 if (intensidade > 0) {
                     const brilho = Math.round((intensidade / 255) * 100);
-                    ledVirtual10.className = `w-16 h-16 rounded-full flex items-center justify-center transition-all duration-500`;
+                    ledVirtual10.className = `w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500`;
                     ledVirtual10.style.background = `rgba(253, 224, 71, ${brilho/100})`;
                     ledVirtual10.style.boxShadow = `0 0 ${20 + brilho}px ${5 + brilho/10}px rgba(253, 224, 71, ${brilho/200})`;
-                    lampIcon10.setAttribute('class', `w-8 h-8 text-orange-500 transition-colors duration-500`);
+                    lampIcon10.setAttribute('class', `w-6 h-6 text-orange-500 transition-colors duration-500`);
                     ledStatus10.innerHTML = `<span class="text-emerald-400 text-[10px]">● ${percentual}%</span>`;
                 } else {
-                    ledVirtual10.className = 'w-16 h-16 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500';
+                    ledVirtual10.className = 'w-12 h-12 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500';
                     ledVirtual10.style.background = '';
                     ledVirtual10.style.boxShadow = '';
-                    lampIcon10.setAttribute('class', 'w-8 h-8 text-slate-500/60 transition-colors duration-500');
+                    lampIcon10.setAttribute('class', 'w-6 h-6 text-slate-500/60 transition-colors duration-500');
                     ledStatus10.innerHTML = '<span class="text-slate-400 text-[10px]">○ 0%</span>';
                 }
-
-                barra10.style.width = percentual + '%';
-                label10.textContent = `${percentual}% (${intensidade}/255)`;
             }
 
             function updateAllLEDs(state) {
@@ -468,6 +504,61 @@
 
                 valorPotElement.textContent = valor;
             }
+
+            // ==========================================
+            // BARGRAPH - Eventos de clique e arraste
+            // ==========================================
+            function calcularIntensidade(event) {
+                const rect = bargraphContainer.getBoundingClientRect();
+                const y = event.clientY - rect.top;
+                const altura = rect.height;
+                
+                // Inverte: clique em cima = mais intensidade
+                let percentual = 1 - (y / altura);
+                percentual = Math.max(0, Math.min(1, percentual));
+                
+                const valor = Math.round(percentual * 255);
+                return valor;
+            }
+
+            function onBargraphInteraction(event) {
+                const valor = calcularIntensidade(event);
+                updateLedPWM(valor);
+                publicarPWM(valor);
+            }
+
+            // Eventos de mouse
+            bargraphContainer.addEventListener('mousedown', function(e) {
+                arrastando = true;
+                onBargraphInteraction(e);
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (arrastando) {
+                    onBargraphInteraction(e);
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                arrastando = false;
+            });
+
+            // Eventos de toque (mobile)
+            bargraphContainer.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                onBargraphInteraction(touch);
+            }, {passive: false});
+
+            bargraphContainer.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                onBargraphInteraction(touch);
+            }, {passive: false});
+
+            bargraphContainer.addEventListener('touchend', function(e) {
+                // Não faz nada
+            });
 
             // ==========================================
             // MQTT
@@ -612,12 +703,6 @@
                     publicar(`LED${port}_OFF`);
                     updateLedUI(port, 0);
                 });
-            });
-
-            slider10.addEventListener('input', function() {
-                const valor = parseInt(this.value);
-                updateLedPWM(valor);
-                publicarPWM(valor);
             });
 
             btnAllOn.addEventListener('click', function() {
