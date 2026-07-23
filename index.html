@@ -82,6 +82,16 @@
             background-color: rgba(0, 0, 0, 0.1);
             border-color: rgba(0, 0, 0, 0.3);
         }
+
+        /* Botões toggle */
+        .btn-toggle {
+            transition: all 0.3s ease;
+        }
+        .btn-toggle.active {
+            background-color: #fbbf24 !important;
+            border-color: #f59e0b !important;
+            color: #1a2a4a !important;
+        }
     </style>
 </head>
 <body class="bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000">
@@ -99,7 +109,7 @@
 
         <div class="flex items-center gap-3">
             <!-- BOTÃO DE CONFIGURAÇÃO -->
-            <button id="btn-config" class="p-2.5 rounded-full bg-slate-900/40 border border-slate-700/30 hover:bg-slate-800/50 transition-all duration-300" title="Configurar Tópicos MQTT">
+            <button id="btn-config" class="p-2.5 rounded-full bg-slate-900/40 border border-slate-700/30 hover:bg-slate-800/50 transition-all duration-300" title="Configurar Tópico MQTT">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 00.78 2.737c1.806.307 1.806 2.864 0 3.171a1.724 1.724 0 00-.78 2.737c.94 1.543-.827 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-.78-2.737c-1.806-.307-1.806-2.864 0-3.171a1.724 1.724 0 00.78-2.737c-.94-1.543.827-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -116,74 +126,34 @@
         </div>
     </header>
 
-    <!-- MODAL DE CONFIGURAÇÃO DOS TÓPICOS -->
+    <!-- MODAL DE CONFIGURAÇÃO DO TÓPICO -->
     <div id="config-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[80vh] overflow-y-auto">
-            <h2 class="text-lg font-bold text-white mb-4">Configurar Tópicos MQTT</h2>
+            <h2 class="text-lg font-bold text-white mb-4">Configurar Tópico MQTT</h2>
             
             <div class="space-y-4">
-                <!-- Porta 8 -->
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                        Tópico Porta 8
+                        Tópico Único
                     </label>
                     <input 
-                        id="topic-input-8" 
+                        id="topic-input" 
                         type="text" 
-                        placeholder="led/porta8"
+                        placeholder="led"
                         class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
                     />
+                    <p class="text-xs text-slate-400 mt-2">
+                        Configure o tópico MQTT único para controlar todos os LEDs.
+                        <br>Comandos: LED13, LED10, LED9, LED8, ALLON, ALLOFF
+                    </p>
                 </div>
-
-                <!-- Porta 9 -->
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                        Tópico Porta 9
-                    </label>
-                    <input 
-                        id="topic-input-9" 
-                        type="text" 
-                        placeholder="led/porta9"
-                        class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
-                    />
-                </div>
-
-                <!-- Porta 10 -->
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                        Tópico Porta 10
-                    </label>
-                    <input 
-                        id="topic-input-10" 
-                        type="text" 
-                        placeholder="led/porta10"
-                        class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
-                    />
-                </div>
-
-                <!-- Porta 13 -->
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                        Tópico Porta 13
-                    </label>
-                    <input 
-                        id="topic-input-13" 
-                        type="text" 
-                        placeholder="led/porta13"
-                        class="w-full px-4 py-2.5 rounded-lg text-slate-200 placeholder-slate-500 text-sm"
-                    />
-                </div>
-
-                <p class="text-xs text-slate-400 mt-2">
-                    Configure os tópicos MQTT para cada porta do Arduino.
-                </p>
             </div>
 
             <div class="flex gap-3 mt-6">
                 <button id="btn-cancel" class="flex-1 py-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
                     Cancelar
                 </button>
-                <button id="btn-save-topics" class="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
+                <button id="btn-save-topic" class="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold uppercase text-xs tracking-wider transition-all duration-300">
                     Salvar
                 </button>
             </div>
@@ -207,17 +177,11 @@
                     </span>
                 </div>
 
-                <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-8" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-500/40 border border-emerald-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Ligar
-                    </button>
-                    <button id="btn-off-8" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-500/40 border border-rose-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Desligar
-                    </button>
-                </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-8">Porta 8</p>
+                <button id="btn-toggle-8" disabled 
+                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
+                    Toggle LED
+                </button>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 8</p>
             </div>
 
             <!-- LED PORTA 9 -->
@@ -233,17 +197,11 @@
                     </span>
                 </div>
 
-                <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-9" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-500/40 border border-emerald-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Ligar
-                    </button>
-                    <button id="btn-off-9" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-500/40 border border-rose-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Desligar
-                    </button>
-                </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-9">Porta 9</p>
+                <button id="btn-toggle-9" disabled 
+                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
+                    Toggle LED
+                </button>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 9</p>
             </div>
 
             <!-- LED PORTA 10 -->
@@ -259,17 +217,11 @@
                     </span>
                 </div>
 
-                <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-10" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-500/40 border border-emerald-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Ligar
-                    </button>
-                    <button id="btn-off-10" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-500/40 border border-rose-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Desligar
-                    </button>
-                </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-10">Porta 10</p>
+                <button id="btn-toggle-10" disabled 
+                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
+                    Toggle LED
+                </button>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 10</p>
             </div>
 
             <!-- LED PORTA 13 -->
@@ -285,19 +237,25 @@
                     </span>
                 </div>
 
-                <div class="w-full grid grid-cols-2 gap-3">
-                    <button id="btn-on-13" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-500/40 border border-emerald-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Ligar
-                    </button>
-                    <button id="btn-off-13" disabled 
-                        class="py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-500/40 border border-rose-400/20 cursor-not-allowed opacity-40 transition-all duration-300">
-                        Desligar
-                    </button>
-                </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-13">Porta 13</p>
+                <button id="btn-toggle-13" disabled 
+                    class="btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300">
+                    Toggle LED
+                </button>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 13</p>
             </div>
 
+        </div>
+
+        <!-- BOTÕES GERAIS -->
+        <div class="w-full max-w-6xl grid grid-cols-2 gap-4 mt-8">
+            <button id="btn-all-on" disabled 
+                class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                💡 Ligar Todos
+            </button>
+            <button id="btn-all-off" disabled 
+                class="py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed">
+                ⚡ Desligar Todos
+            </button>
         </div>
     </main>
 
@@ -308,15 +266,16 @@
         </p>
     </footer>
 
-    <!-- LOGICA DE HARDWARE E CONEXÃO MQTT -->
+    <!-- LÓGICA DE HARDWARE E CONEXÃO MQTT -->
     <script>
         const PORTS = [8, 9, 10, 13];
-        const DEFAULT_TOPICS = {
-            8: "led/porta8",
-            9: "led/porta9",
-            10: "led/porta10",
-            13: "led/porta13"
+        const PORTA_LED = {
+            8: 'LED8',
+            9: 'LED9',
+            10: 'LED10',
+            13: 'LED13'
         };
+        const DEFAULT_TOPIC = 'led';
 
         // DOM references
         const statusPill = document.getElementById("status-pill");
@@ -325,42 +284,42 @@
         const configModal = document.getElementById("config-modal");
         const btnConfig = document.getElementById("btn-config");
         const btnCancel = document.getElementById("btn-cancel");
-        const btnSaveTopics = document.getElementById("btn-save-topics");
+        const btnSaveTopic = document.getElementById("btn-save-topic");
         const footerDebug = document.getElementById("footer-debug");
+        const topicInput = document.getElementById("topic-input");
+        const btnAllOn = document.getElementById("btn-all-on");
+        const btnAllOff = document.getElementById("btn-all-off");
 
-        const topicInputs = {};
         const ledVirtuals = {};
         const lampIcons = {};
         const ledStatusTexts = {};
-        const btnOns = {};
-        const btnOffs = {};
+        const btnToggles = {};
         const topicDisplays = {};
 
         PORTS.forEach(port => {
-            topicInputs[port] = document.getElementById(`topic-input-${port}`);
             ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
             lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
             ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
-            btnOns[port] = document.getElementById(`btn-on-${port}`);
-            btnOffs[port] = document.getElementById(`btn-off-${port}`);
+            btnToggles[port] = document.getElementById(`btn-toggle-${port}`);
             topicDisplays[port] = document.getElementById(`topic-display-${port}`);
         });
 
         // Estado
-        let currentTopics = {};
+        let currentTopic = '';
         let client = null;
         let isConnected = false;
         let ledStates = {};
 
-        // Carrega tópicos salvos
-        function loadTopics() {
+        // Carrega tópico salvo
+        function loadTopic() {
+            const saved = localStorage.getItem('mqtt_topic');
+            currentTopic = saved || DEFAULT_TOPIC;
+            topicInput.value = currentTopic;
             PORTS.forEach(port => {
-                const saved = localStorage.getItem(`mqtt_topic_${port}`);
-                currentTopics[port] = saved || DEFAULT_TOPICS[port];
                 ledStates[port] = 0;
-                topicDisplays[port].textContent = currentTopics[port];
+                topicDisplays[port].textContent = `Tópico: ${currentTopic}`;
             });
-            console.log("✅ Tópicos carregados:", currentTopics);
+            console.log("✅ Tópico carregado:", currentTopic);
         }
 
         // Log com timestamp
@@ -370,12 +329,10 @@
             footerDebug.textContent = `${msg.substring(0, 80)}...`;
         }
 
-        // Salva tópicos
-        function saveTopicsToLocalStorage() {
-            PORTS.forEach(port => {
-                localStorage.setItem(`mqtt_topic_${port}`, currentTopics[port]);
-            });
-            console.log("💾 Tópicos salvos no localStorage:", currentTopics);
+        // Salva tópico
+        function saveTopicToLocalStorage() {
+            localStorage.setItem('mqtt_topic', currentTopic);
+            console.log("💾 Tópico salvo no localStorage:", currentTopic);
         }
 
         // Status visual
@@ -402,17 +359,25 @@
         function setButtonsEnabled(enabled) {
             PORTS.forEach(port => {
                 if (enabled) {
-                    btnOns[port].disabled = false;
-                    btnOffs[port].disabled = false;
-                    btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300";
-                    btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300";
+                    btnToggles[port].disabled = false;
+                    btnToggles[port].className = "btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-blue-600 border border-blue-500 hover:bg-blue-500 cursor-pointer shadow-lg shadow-blue-500/20 transition-all duration-300";
                 } else {
-                    btnOns[port].disabled = true;
-                    btnOffs[port].disabled = true;
-                    btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
-                    btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
+                    btnToggles[port].disabled = true;
+                    btnToggles[port].className = "btn-toggle w-full py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
                 }
             });
+            
+            if (enabled) {
+                btnAllOn.disabled = false;
+                btnAllOff.disabled = false;
+                btnAllOn.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300";
+                btnAllOff.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300";
+            } else {
+                btnAllOn.disabled = true;
+                btnAllOff.disabled = true;
+                btnAllOn.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-500/20 transition-all duration-300 opacity-40 cursor-not-allowed";
+                btnAllOff.className = "py-4 rounded-2xl font-bold uppercase text-sm tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-500/20 transition-all duration-300 opacity-40 cursor-not-allowed";
+            }
         }
 
         function updateLedUI(port, state) {
@@ -421,10 +386,14 @@
                 ledVirtuals[port].className = "w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
                 lampIcons[port].setAttribute("class", "w-16 h-16 text-orange-500 transition-colors duration-700");
                 ledStatusTexts[port].innerText = "Ativo";
+                btnToggles[port].classList.add('active');
+                btnToggles[port].innerHTML = '🔆 Desligar';
             } else {
                 ledVirtuals[port].className = "w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
                 lampIcons[port].setAttribute("class", "w-16 h-16 text-slate-500/60 transition-colors duration-700");
                 ledStatusTexts[port].innerText = "Inativo";
+                btnToggles[port].classList.remove('active');
+                btnToggles[port].innerHTML = '🔆 Ligar';
             }
             ledStates[port] = state;
         }
@@ -451,14 +420,11 @@
                 setStatus('online', 'Sistema Online');
                 setButtonsEnabled(true);
                 
-                // Subscribe to ALL topics
-                PORTS.forEach(portNum => {
-                    const topic = currentTopics[portNum];
-                    if (topic && topic.length > 0) {
-                        client.subscribe(topic, { qos: 1 });
-                        log(`📥 Inscrito em: ${topic}`);
-                    }
-                });
+                // Subscribe ao tópico único
+                if (currentTopic && currentTopic.length > 0) {
+                    client.subscribe(currentTopic, { qos: 1 });
+                    log(`📥 Inscrito em: ${currentTopic}`);
+                }
             };
 
             const onFailure = (err) => {
@@ -480,26 +446,26 @@
                 const topic = message.destinationName;
                 log(`📨 Mensagem recebida | Tópico: ${topic} | Payload: ${payload}`);
 
-                // Find which port this message belongs to
-                let matchedPort = null;
-                PORTS.forEach(portNum => {
-                    if (topic === currentTopics[portNum]) {
-                        matchedPort = portNum;
+                // Verificar se a mensagem é para controlar um LED
+                if (payload.startsWith('LED')) {
+                    const ledNum = parseInt(payload.replace('LED', ''));
+                    if (PORTS.includes(ledNum)) {
+                        // Toggle: inverter estado
+                        const newState = ledStates[ledNum] === 1 ? 0 : 1;
+                        updateLedUI(ledNum, newState);
+                        log(`🔄 LED${ledNum} alternado para ${newState === 1 ? 'Ligado' : 'Desligado'}`);
                     }
-                });
-
-                if (matchedPort !== null) {
-                    console.log(`✅ Tópico corresponde à PORTA ${matchedPort}`);
-                    if (payload === '1' || payload === '1') {
-                        updateLedUI(matchedPort, 1);
-                    } else if (payload === '0' || payload === '0') {
-                        updateLedUI(matchedPort, 0);
-                    } else {
-                        console.warn(`⚠️ Payload inválido: ${payload}`);
-                    }
-                } else {
-                    console.warn(`❌ Tópico ${topic} não corresponde a nenhuma porta!`);
-                    console.table(currentTopics);
+                }
+                else if (payload === 'ALLON') {
+                    PORTS.forEach(port => updateLedUI(port, 1));
+                    log('💡 Todos os LEDs ligados');
+                }
+                else if (payload === 'ALLOFF') {
+                    PORTS.forEach(port => updateLedUI(port, 0));
+                    log('💡 Todos os LEDs desligados');
+                }
+                else {
+                    log(`⚠️ Comando desconhecido: ${payload}`);
                 }
             };
 
@@ -527,68 +493,60 @@
             client.connect(options);
         }
 
-        // Trocar tópicos e reinscrever
-        function switchTopics(newTopics) {
+        // Trocar tópico e reinscrever
+        function switchTopic(newTopic) {
             if (!client || !isConnected) {
-                log("❌ MQTT não conectado, apenas salvando tópicos...");
-                currentTopics = { ...newTopics };
-                saveTopicsToLocalStorage();
+                log("❌ MQTT não conectado, apenas salvando tópico...");
+                currentTopic = newTopic;
+                saveTopicToLocalStorage();
                 PORTS.forEach(port => {
-                    topicDisplays[port].textContent = currentTopics[port];
+                    topicDisplays[port].textContent = `Tópico: ${currentTopic}`;
                 });
                 return;
             }
 
-            log("🔄 Trocando inscrições MQTT...");
+            log("🔄 Trocando inscrição MQTT...");
 
-            PORTS.forEach(port => {
-                const oldTopic = currentTopics[port];
-                const newTopic = newTopics[port];
-
-                if (newTopic && newTopic.length > 0 && oldTopic !== newTopic) {
-                    try {
-                        if (oldTopic && oldTopic.length > 0) {
-                            client.unsubscribe(oldTopic, { qos: 1 });
-                            log(`📤 Desinscrito de: ${oldTopic}`);
-                        }
-                        client.subscribe(newTopic, { qos: 1 });
-                        log(`📥 Inscrito em: ${newTopic}`);
-                    } catch (e) {
-                        console.error('[MQTT] Erro ao trocar:', e);
-                    }
+            try {
+                if (currentTopic && currentTopic.length > 0) {
+                    client.unsubscribe(currentTopic, { qos: 1 });
+                    log(`📤 Desinscrito de: ${currentTopic}`);
                 }
-            });
+                if (newTopic && newTopic.length > 0) {
+                    client.subscribe(newTopic, { qos: 1 });
+                    log(`📥 Inscrito em: ${newTopic}`);
+                }
+            } catch (e) {
+                console.error('[MQTT] Erro ao trocar:', e);
+            }
 
-            currentTopics = { ...newTopics };
-            saveTopicsToLocalStorage();
+            currentTopic = newTopic;
+            saveTopicToLocalStorage();
             PORTS.forEach(port => {
-                topicDisplays[port].textContent = currentTopics[port];
+                topicDisplays[port].textContent = `Tópico: ${currentTopic}`;
             });
         }
 
         // Publicar comando
-        function publishCommand(port, value) {
+        function publishCommand(command) {
             if (!client || !isConnected) {
                 log(`❌ Não conectado ao MQTT`);
                 return;
             }
-            const topic = currentTopics[port];
-            if (!topic || topic.length === 0) {
-                log(`❌ Tópico inválido para porta ${port}`);
+            if (!currentTopic || currentTopic.length === 0) {
+                log(`❌ Tópico inválido`);
                 return;
             }
-            const msg = new Paho.MQTT.Message(String(value));
-            msg.destinationName = topic;
+            const msg = new Paho.MQTT.Message(command);
+            msg.destinationName = currentTopic;
             msg.qos = 1;
             client.send(msg);
-            log(`📤 Publicado '${value}' em porta ${port}: ${topic}`);
+            log(`📤 Publicado '${command}' em ${currentTopic}`);
         }
 
         // Modal events
         btnConfig.addEventListener('click', () => {
-            PORTS.forEach(port => {
-                topicInputs[port].value = currentTopics[port];
-            });
+            topicInput.value = currentTopic;
             configModal.classList.remove('hidden');
         });
 
@@ -596,32 +554,20 @@
             configModal.classList.add('hidden');
         });
 
-        function saveTopics() {
-            const newTopics = {};
-            let valid = true;
-            
-            PORTS.forEach(port => {
-                const val = topicInputs[port].value.trim();
-                if (!val) {
-                    alert(`Porta ${port}: Digite um tópico válido.`);
-                    valid = false;
-                    return;
-                }
-                newTopics[port] = val;
-            });
-
-            if (!valid) return;
-
-            switchTopics(newTopics);
+        function saveTopic() {
+            const val = topicInput.value.trim();
+            if (!val) {
+                alert('Digite um tópico válido.');
+                return;
+            }
+            switchTopic(val);
             configModal.classList.add('hidden');
-            log(`✅ Tópicos atualizados`);
+            log(`✅ Tópico atualizado: ${val}`);
         }
 
-        btnSaveTopics.addEventListener('click', saveTopics);
-        PORTS.forEach(port => {
-            topicInputs[port].addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') saveTopics();
-            });
+        btnSaveTopic.addEventListener('click', saveTopic);
+        topicInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveTopic();
         });
 
         configModal.addEventListener('click', (e) => {
@@ -630,17 +576,29 @@
             }
         });
 
-        // Button events
+        // Button events - Toggle LEDs
         PORTS.forEach(port => {
-            btnOns[port].addEventListener('click', () => publishCommand(port, "1"));
-            btnOffs[port].addEventListener('click', () => publishCommand(port, "0"));
+            btnToggles[port].addEventListener('click', () => {
+                const command = PORTA_LED[port];
+                publishCommand(command);
+                // O feedback visual virá via MQTT
+                log(`📤 Enviando comando: ${command}`);
+            });
+        });
+
+        // Botões gerais
+        btnAllOn.addEventListener('click', () => {
+            publishCommand('ALLON');
+        });
+        btnAllOff.addEventListener('click', () => {
+            publishCommand('ALLOFF');
         });
 
         // Init
         function init() {
             setStatus('sync', 'Sincronizando...');
             setButtonsEnabled(false);
-            loadTopics();
+            loadTopic();
             PORTS.forEach(port => {
                 updateLedUI(port, 0);
             });
@@ -654,9 +612,9 @@
             client,
             connectMqtt,
             publishCommand,
-            currentTopics,
+            currentTopic,
             log,
-            refreshTopics: loadTopics
+            refreshTopic: loadTopic
         };
     </script>
 </body>
