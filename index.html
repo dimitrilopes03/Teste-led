@@ -101,7 +101,7 @@
             <!-- BOTÃO DE CONFIGURAÇÃO -->
             <button id="btn-config" class="p-2.5 rounded-full bg-slate-900/40 border border-slate-700/30 hover:bg-slate-800/50 transition-all duration-300" title="Configurar Tópico MQTT">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c-.94 1.543.826 3.31 2.37 2.37a1.724 1.724 0 00 2.572 1.065c.426 1.756 2.924 1.756 3.35 0a1.724 1.724 0 002.573-1.066c1.543.94 3.31-.826 2.37-2.37a1.724 1.724 0 001.065-2.572c1.756-.426 1.756-2.924 0-3.35a1.724 1.724 0 00-1.066-2.573c.94-1.543-.826-3.31-2.37-2.37-.996.608-2.296.07-2.572-1.065z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </button>
@@ -190,206 +190,277 @@
 
     <!-- LOGICA DE HARDWARE E CONEXÃO MQTT -->
     <script>
-        // Configurações do Broker e Tópicos
-        const MQTT_BROKER = "broker.hivemq.com";
-        const MQTT_PORT = 8884; // Porta WebSocket Segura (SSL)
-        const DEFAULT_MQTT_TOPIC = "esp32/arduino/porta13";
-        
-        // Carregar tópico salvo no localStorage ou usar o padrão
-        let MQTT_TOPIC = localStorage.getItem("mqtt_topic") || DEFAULT_MQTT_TOPIC;
-        
-        // Gerador de ID Único e Aleatório para evitar conflitos na rede HiveMQ
-        const clientUniqueId = "client_iot_p13_" + Math.random().toString(36).substring(2, 15);
+        (function() {
+            // --- DOM refs ---
+            const bodyEl = document.body;
+            const statusPill = document.getElementById("status-pill");
+            const statusDot = document.getElementById("status-dot");
+            const statusText = document.getElementById("status-text");
+            const ledVirtual = document.getElementById("led-virtual");
+            const lampIcon = document.getElementById("lamp-icon");
+            const ledStatusText = document.getElementById("led-status-text");
+            const btnOn = document.getElementById("btn-on");
+            const btnOff = document.getElementById("btn-off");
+            const configModal = document.getElementById("config-modal");
+            const topicInput = document.getElementById("topic-input");
+            const footerTopic = document.getElementById("footer-topic");
+            const btnConfig = document.getElementById("btn-config");
+            const btnCancel = document.getElementById("btn-cancel");
+            const btnSaveTopic = document.getElementById("btn-save-topic");
 
-        // Mapeamento dos Elementos do DOM
-        const bodyEl = document.body;
-        const statusPill = document.getElementById("status-pill");
-        const statusDot = document.getElementById("status-dot");
-        const statusText = document.getElementById("status-text");
-        const ledVirtual = document.getElementById("led-virtual");
-        const lampIcon = document.getElementById("lamp-icon");
-        const ledStatusText = document.getElementById("led-status-text");
-        const btnOn = document.getElementById("btn-on");
-        const btnOff = document.getElementById("btn-off");
-        const configModal = document.getElementById("config-modal");
-        const topicInput = document.getElementById("topic-input");
-        const footerTopic = document.getElementById("footer-topic");
-        const btnConfig = document.getElementById("btn-config");
-        const btnCancel = document.getElementById("btn-cancel");
-        const btnSaveTopic = document.getElementById("btn-save-topic");
+            // --- estado interno ---
+            let currentTopic = "esp32/arduino/porta13";
+            let client = null;
+            let isConnected = false;
+            let ledState = 0; // 0 = off, 1 = on
 
-        // Inicializa a instância do Cliente MQTT Paho
-        let client = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientUniqueId);
+            // --- helpers UI ---
+            function setStatus(mode, msg) {
+                // mode: 'sync', 'online', 'offline'
+                statusDot.className = "w-2.5 h-2.5 rounded-full";
+                if (mode === 'sync') {
+                    statusDot.classList.add('bg-amber-400', 'pulse-anim');
+                    statusText.textContent = msg || 'Sincronizando...';
+                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-slate-200";
+                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500";
+                } else if (mode === 'online') {
+                    statusDot.classList.add('bg-emerald-400');
+                    statusText.textContent = msg || 'Sistema Online';
+                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
+                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
+                } else if (mode === 'offline') {
+                    statusDot.classList.add('bg-rose-500');
+                    statusText.textContent = msg || 'Desconectado';
+                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
+                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
+                }
+            }
 
-        // Atribuição de Callbacks do Ciclo de Vida do MQTT
-        client.onConnectionLost = onConnectionLost;
-        client.onMessageArrived = onMessageArrived;
+            function setButtonsEnabled(enabled) {
+                if (enabled) {
+                    btnOn.disabled = false;
+                    btnOff.disabled = false;
+                    btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
+                    btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
+                } else {
+                    btnOn.disabled = true;
+                    btnOff.disabled = true;
+                    btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
+                    btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
+                }
+            }
 
-        // Opções de Conexão com Suporte Seguro (SSL via WebSockets)
-        const connectOptions = {
-            useSSL: true,
-            timeout: 3,
-            onSuccess: onConnectSuccess,
-            onFailure: onConnectFailure
-        };
+            function updateLedUI(state) {
+                if (state === 1) {
+                    bodyEl.className = "bg-lamp-on min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
+                    ledVirtual.className = "w-40 h-40 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
+                    lampIcon.setAttribute("class", "w-20 h-20 text-orange-500 transition-colors duration-700");
+                    ledStatusText.innerText = "Dispositivo Ativo";
+                } else {
+                    bodyEl.className = "bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
+                    ledVirtual.className = "w-40 h-40 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
+                    lampIcon.setAttribute("class", "w-20 h-20 text-slate-500/60 transition-colors duration-700");
+                    ledStatusText.innerText = "Dispositivo Inativo";
+                }
+            }
 
-        // Executa a conexão automática ao carregar a página
-        client.connect(connectOptions);
+            // --- MQTT lógica ---
+            function connectMqtt() {
+                if (client) {
+                    try { client.disconnect(); } catch (_) {}
+                    client = null;
+                }
 
-        // EVENT LISTENERS DO MODAL DE CONFIGURAÇÃO
-        btnConfig.addEventListener('click', () => {
-            topicInput.value = MQTT_TOPIC;
-            configModal.classList.remove('hidden');
-            topicInput.focus();
-        });
+                const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
+                const broker = 'broker.hivemq.com';
+                const port = 8884;
+                
+                client = new Paho.MQTT.Client(broker, port, clientId);
+                client.useSSL = true;
 
-        btnCancel.addEventListener('click', () => {
-            configModal.classList.add('hidden');
-        });
+                const onConnect = () => {
+                    isConnected = true;
+                    setStatus('online', 'Sistema Online');
+                    setButtonsEnabled(true);
+                    // inscreve no tópico atual
+                    const topic = currentTopic;
+                    if (topic && topic.length > 0) {
+                        client.subscribe(topic, { qos: 0 });
+                        console.log('[MQTT] inscrito em:', topic);
+                    }
+                };
 
-        btnSaveTopic.addEventListener('click', saveTopic);
-        topicInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') saveTopic();
-        });
+                const onFailure = (err) => {
+                    isConnected = false;
+                    setStatus('offline', 'Falha na conexão');
+                    setButtonsEnabled(false);
+                    console.warn('[MQTT] erro conexão:', err);
+                    // tenta reconectar após 5s
+                    setTimeout(() => {
+                        if (!isConnected) {
+                            connectMqtt();
+                        }
+                    }, 5000);
+                };
 
-        configModal.addEventListener('click', (e) => {
-            if (e.target === configModal) {
+                const onMessageArrived = (message) => {
+                    const payload = message.payloadString.trim();
+                    const topic = message.destinationName;
+                    console.log(`[MQTT] mensagem em ${topic}:`, payload);
+
+                    // só atualiza se for o tópico atual
+                    if (topic === currentTopic) {
+                        if (payload === '1') {
+                            ledState = 1;
+                            updateLedUI(1);
+                        } else if (payload === '0') {
+                            ledState = 0;
+                            updateLedUI(0);
+                        }
+                    }
+                };
+
+                client.onConnectionLost = (response) => {
+                    isConnected = false;
+                    setStatus('offline', 'Conexão perdida');
+                    setButtonsEnabled(false);
+                    console.warn('[MQTT] conexão perdida', response);
+                    // tenta reconectar
+                    setTimeout(() => {
+                        if (!isConnected) {
+                            connectMqtt();
+                        }
+                    }, 4000);
+                };
+
+                client.onMessageArrived = onMessageArrived;
+
+                const options = {
+                    timeout: 10,
+                    onSuccess: onConnect,
+                    onFailure: onFailure,
+                    useSSL: true,
+                };
+
+                client.connect(options);
+            }
+
+            // --- desinscrever e assinar novo tópico ---
+            function switchTopic(newTopic) {
+                if (!client || !isConnected) return;
+                if (!newTopic || newTopic.length === 0) return;
+
+                // desinscreve do antigo se existir
+                const oldTopic = currentTopic;
+                if (oldTopic && oldTopic.length > 0 && oldTopic !== newTopic) {
+                    try {
+                        client.unsubscribe(oldTopic, { qos: 0 });
+                        console.log('[MQTT] desinscrito de:', oldTopic);
+                    } catch (e) {
+                        console.warn('[MQTT] erro ao desinscrever', e);
+                    }
+                }
+
+                // inscreve no novo
+                try {
+                    client.subscribe(newTopic, { qos: 0 });
+                    console.log('[MQTT] inscrito em:', newTopic);
+                    currentTopic = newTopic;
+                    footerTopic.innerText = newTopic;
+                } catch (e) {
+                    console.warn('[MQTT] erro ao inscrever', e);
+                }
+            }
+
+            // --- publicar comando ---
+            function publishCommand(value) {
+                if (!client || !isConnected) {
+                    console.warn('[MQTT] não conectado');
+                    return;
+                }
+                const topic = currentTopic;
+                if (!topic || topic.length === 0) {
+                    console.warn('[MQTT] tópico inválido');
+                    return;
+                }
+                const msg = new Paho.MQTT.Message(String(value));
+                msg.destinationName = topic;
+                msg.qos = 0;
+                client.send(msg);
+                console.log(`[MQTT] publicado '${value}' em ${topic}`);
+            }
+
+            // --- EVENT LISTENERS DO MODAL DE CONFIGURAÇÃO ---
+            btnConfig.addEventListener('click', () => {
+                topicInput.value = currentTopic;
+                configModal.classList.remove('hidden');
+                topicInput.focus();
+            });
+
+            btnCancel.addEventListener('click', () => {
                 configModal.classList.add('hidden');
-            }
-        });
+            });
 
-        function saveTopic() {
-            const newTopic = topicInput.value.trim();
-            
-            if (!newTopic) {
-                alert("Por favor, digite um tópico válido.");
-                return;
-            }
-
-            // Se o cliente está conectado, desinscreve do tópico antigo
-            if (client && client.isConnected()) {
-                try {
-                    client.unsubscribe(MQTT_TOPIC);
-                } catch (e) {
-                    console.warn("Erro ao desinscrever do tópico antigo:", e);
+            function saveTopic() {
+                const newTopic = topicInput.value.trim();
+                
+                if (!newTopic) {
+                    alert("Por favor, digite um tópico válido.");
+                    return;
                 }
-            }
 
-            // Atualiza o tópico
-            MQTT_TOPIC = newTopic;
-            localStorage.setItem("mqtt_topic", MQTT_TOPIC);
-            footerTopic.innerText = MQTT_TOPIC;
-
-            // Se conectado, inscreve no novo tópico
-            if (client && client.isConnected()) {
-                try {
-                    client.subscribe(MQTT_TOPIC);
-                    console.log(`Inscrito no novo tópico: ${MQTT_TOPIC}`);
-                } catch (e) {
-                    console.error("Erro ao inscrever no novo tópico:", e);
+                if (newTopic === currentTopic) {
+                    configModal.classList.add('hidden');
+                    return;
                 }
+
+                // se conectado, faz a troca
+                if (isConnected && client) {
+                    switchTopic(newTopic);
+                } else {
+                    // apenas atualiza a referência para quando conectar
+                    currentTopic = newTopic;
+                    footerTopic.innerText = newTopic;
+                }
+
+                configModal.classList.add('hidden');
+                console.log(`Tópico atualizado para: ${currentTopic}`);
             }
 
-            configModal.classList.add('hidden');
-            console.log(`Tópico atualizado para: ${MQTT_TOPIC}`);
-        }
+            btnSaveTopic.addEventListener('click', saveTopic);
+            topicInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') saveTopic();
+            });
 
-        // CALLBACK: Sucesso ao Conectar
-        function onConnectSuccess() {
-            console.log("Conectado ao Broker MQTT com Sucesso!");
-            
-            // Atualiza visualmente o Status Pill para Verde Esmeralda Online
-            statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
-            statusText.innerText = "Sistema Online";
-            statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
-            statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
+            configModal.addEventListener('click', (e) => {
+                if (e.target === configModal) {
+                    configModal.classList.add('hidden');
+                }
+            });
 
-            // Libera e dá vida aos botões de ação na interface
-            enableActionButtons();
+            // --- eventos dos botões de ação ---
+            btnOn.addEventListener('click', () => publishCommand("1"));
+            btnOff.addEventListener('click', () => publishCommand("0"));
 
-            // Inscreve no tópico correspondente para escutar o estado real do LED
-            client.subscribe(MQTT_TOPIC);
-        }
+            // --- inicialização ---
+            function init() {
+                // seta estado inicial
+                setStatus('sync', 'Sincronizando...');
+                setButtonsEnabled(false);
+                updateLedUI(0);
+                ledState = 0;
+                footerTopic.innerText = currentTopic;
 
-        // CALLBACK: Falha Crítica ao Conectar
-        function onConnectFailure(error) {
-            console.error("Falha na conexão inicial:", error);
-            setSystemOffline();
-        }
-
-        // CALLBACK: Queda de Conexão no meio da execução
-        function onConnectionLost(responseObject) {
-            if (responseObject.errorCode !== 0) {
-                console.warn("Conexão perdida de forma inesperada:", responseObject.errorMessage);
-                setSystemOffline();
+                // conecta MQTT
+                connectMqtt();
             }
-        }
 
-        // REGRA DE OURO DA ARQUITETURA:
-        // O estado da interface muda RIGOROSAMENTE aqui quando a mensagem retorna do Broker.
-        function onMessageArrived(message) {
-            const payload = message.payloadString.trim();
-            console.log(`Mensagem recebida do Broker no tópico [${message.destinationName}]: ${payload}`);
+            // inicia
+            init();
 
-            if (payload === "1") {
-                // Estado ATIVO (Ligado)
-                bodyEl.className = "bg-lamp-on min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
-                
-                ledVirtual.className = "w-40 h-40 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
-                lampIcon.setAttribute("class", "w-20 h-20 text-orange-500 transition-colors duration-700");
-                
-                ledStatusText.innerText = "Dispositivo Ativo";
-            } 
-            else if (payload === "0") {
-                // Estado INATIVO (Desligado)
-                bodyEl.className = "bg-lamp-off min-h-screen flex flex-col justify-between p-6 transition-all duration-1000";
-                
-                ledVirtual.className = "w-40 h-40 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
-                lampIcon.setAttribute("class", "w-20 h-20 text-slate-500/60 transition-colors duration-700");
-                
-                ledStatusText.innerText = "Dispositivo Inativo";
-            }
-        }
-
-        // Função de envio / Publicação de Mensagem MQTT
-        function publishCommand(command) {
-            if (client && client.isConnected()) {
-                const message = new Paho.MQTT.Message(command);
-                message.destinationName = MQTT_TOPIC;
-                client.send(message);
-                console.log(`Comando '${command}' enviado para a Nuvem no tópico: ${MQTT_TOPIC}`);
-            }
-        }
-
-        // EventListeners dos Botões de Ação
-        btnOn.addEventListener('click', () => publishCommand("1"));
-        btnOff.addEventListener('click', () => publishCommand("0"));
-
-        // Helpers de Gerenciamento da Interface
-        function enableActionButtons() {
-            btnOn.disabled = false;
-            btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
-            
-            btnOff.disabled = false;
-            btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
-        }
-
-        function setSystemOffline() {
-            // Modifica visualmente a pílula de status para Vermelho Alerta
-            statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
-            statusText.innerText = "Desconectado";
-            statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
-            statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
-
-            // Bloqueia novamente os comandos na interface
-            btnOn.disabled = true;
-            btnOn.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
-            btnOff.disabled = true;
-            btnOff.className = "py-4 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300";
-        }
-
-        // Atualizar footer com tópico inicial
-        footerTopic.innerText = MQTT_TOPIC;
+            // expor para debug (opcional)
+            window.__iot = { client, connectMqtt, publishCommand, currentTopic };
+        })();
     </script>
 </body>
 </html>
