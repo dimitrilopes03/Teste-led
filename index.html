@@ -6,7 +6,9 @@
     <title>Central de Iluminação IoT</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+    <!-- Chart.js para o gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         body { font-family: 'Inter', sans-serif; background: #0f172a; min-height: 100vh; }
         
@@ -27,7 +29,7 @@
         .btn-on.active { background-color: #22c55e !important; border-color: #16a34a !important; }
         .btn-off.active { background-color: #ef4444 !important; border-color: #dc2626 !important; }
 
-        .log-area { max-height: 120px; overflow-y: auto; font-size: 11px; font-family: monospace; }
+        .log-area { max-height: 100px; overflow-y: auto; font-size: 11px; font-family: monospace; }
         .log-area p { margin: 2px 0; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-area .erro { color: #ef4444; }
         .log-area .sucesso { color: #22c55e; }
@@ -58,271 +60,182 @@
             margin-top: 4px;
         }
 
-        /* Loading */
-        #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #0f172a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            flex-direction: column;
-            gap: 20px;
+        /* Slider personalizado */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.3s;
         }
-        #loading .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #1e293b;
-            border-top-color: #60a5fa;
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            background: #f59e0b;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+            transition: all 0.2s;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #loading p { color: #94a3b8; font-size: 14px; }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #f59e0b;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Card do gráfico */
+        .card-grafico {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 20px;
+        }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col p-4 md:p-6">
 
-    <!-- LOADING -->
-    <div id="loading">
-        <div class="spinner"></div>
-        <p>⏳ Carregando bibliotecas...</p>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- BIBLIOTECA MQTT - CARREGAMENTO DIRETO -->
-    <!-- ========================================== -->
-    <script>
-        // Função para carregar a biblioteca MQTT
-        function carregarMQTT() {
-            return new Promise((resolve, reject) => {
-                // Verifica se já está carregada
-                if (typeof Paho !== 'undefined' && typeof Paho.MQTT !== 'undefined') {
-                    resolve();
-                    return;
-                }
-
-                // Tenta carregar de múltiplas fontes
-                const fontes = [
-                    'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js',
-                    'https://cdn.jsdelivr.net/npm/paho-mqtt@1.0.1/mqttws31.min.js',
-                    'https://unpkg.com/paho-mqtt@1.0.1/mqttws31.min.js'
-                ];
-
-                let tentativa = 0;
-
-                function carregarProxima() {
-                    if (tentativa >= fontes.length) {
-                        reject('Todas as fontes falharam');
-                        return;
-                    }
-
-                    const script = document.createElement('script');
-                    script.src = fontes[tentativa];
-                    script.async = false;
-
-                    script.onload = function() {
-                        // Verifica se carregou
-                        if (typeof Paho !== 'undefined' && typeof Paho.MQTT !== 'undefined') {
-                            resolve();
-                        } else {
-                            tentativa++;
-                            carregarProxima();
-                        }
-                    };
-
-                    script.onerror = function() {
-                        tentativa++;
-                        carregarProxima();
-                    };
-
-                    document.head.appendChild(script);
-                }
-
-                carregarProxima();
-            });
-        }
-
-        // Função para criar um cliente MQTT manual (fallback)
-        function criarClienteMQTTManual(broker, porta, clientId) {
-            // Usa WebSocket diretamente
-            const ws = new WebSocket(`wss://${broker}:${porta}/mqtt`);
-            
-            return {
-                ws: ws,
-                useSSL: true,
-                connected: false,
-                callbacks: {},
-                
-                connect: function(options) {
-                    const self = this;
-                    ws.onopen = function() {
-                        self.connected = true;
-                        if (options.onSuccess) options.onSuccess();
-                    };
-                    ws.onerror = function(err) {
-                        if (options.onFailure) options.onFailure(err);
-                    };
-                    ws.onclose = function() {
-                        self.connected = false;
-                        if (self.callbacks.onConnectionLost) {
-                            self.callbacks.onConnectionLost();
-                        }
-                    };
-                    ws.onmessage = function(event) {
-                        // Parse MQTT message (simplificado)
-                        const payload = event.data;
-                        if (self.callbacks.onMessageArrived) {
-                            self.callbacks.onMessageArrived({
-                                payloadString: payload,
-                                destinationName: 'led'
-                            });
-                        }
-                    };
-                },
-                
-                subscribe: function(topic) {
-                    // Implementação simplificada
-                    if (this.connected) {
-                        this.ws.send(JSON.stringify({ type: 'subscribe', topic: topic }));
-                    }
-                },
-                
-                send: function(message) {
-                    if (this.connected) {
-                        this.ws.send(message.payloadString);
-                    }
-                },
-                
-                disconnect: function() {
-                    if (this.ws) this.ws.close();
-                }
-            };
-        }
-    </script>
+    <!-- CABEÇALHO -->
+    <header class="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <div>
+            <h1 class="text-2xl font-bold text-white">💡 Central IoT</h1>
+            <p class="text-sm text-slate-400">Portas 8, 9, 10 (PWM) e 13 | Sensor A0</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700/50">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-300">Desconectado</span>
+            </div>
+            <button id="btn-reconectar" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition">🔄 Reconectar</button>
+        </div>
+    </header>
 
     <!-- CONTEÚDO PRINCIPAL -->
-    <div id="app" style="display: none;" class="min-h-screen flex flex-col p-4 md:p-6">
-        
-        <!-- CABEÇALHO -->
-        <header class="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-            <div>
-                <h1 class="text-2xl font-bold text-white">💡 Central IoT</h1>
-                <p class="text-sm text-slate-400">Portas 8, 9, 10 (PWM) e 13</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700/50">
-                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-300">Desconectado</span>
-                </div>
-                <button id="btn-reconectar" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition">🔄 Reconectar</button>
-            </div>
-        </header>
-
+    <main class="flex-grow flex flex-col items-center justify-center my-6 w-full">
         <!-- LEDS -->
-        <main class="flex-grow flex flex-col items-center justify-center my-6 w-full">
-            <div class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 gap-4">
+            
+            <!-- LED 8 -->
+            <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
+                <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
+                    <div id="led-virtual-8" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
+                        <svg id="lamp-icon-8" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
+                        </svg>
+                    </div>
+                    <span id="led-status-text-8" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
+                </div>
+                <div class="w-full grid grid-cols-2 gap-2">
+                    <button id="btn-on-8" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
+                    <button id="btn-off-8" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-2">Porta 8</p>
+            </div>
+
+            <!-- LED 9 -->
+            <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
+                <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
+                    <div id="led-virtual-9" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
+                        <svg id="lamp-icon-9" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
+                        </svg>
+                    </div>
+                    <span id="led-status-text-9" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
+                </div>
+                <div class="w-full grid grid-cols-2 gap-2">
+                    <button id="btn-on-9" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
+                    <button id="btn-off-9" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-2">Porta 9</p>
+            </div>
+
+            <!-- LED 10 - PWM com Slider -->
+            <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🎚️ Controle por Slider</p>
+                <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
+                    <div id="led-virtual-10" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
+                        <svg id="lamp-icon-10" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
+                        </svg>
+                    </div>
+                    <span id="led-status-text-10" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">0%</span>
+                </div>
                 
-                <!-- LED 8 -->
-                <div class="card-led rounded-2xl p-6 flex flex-col items-center">
-                    <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
-                    <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
-                        <div id="led-virtual-8" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
-                            <svg id="lamp-icon-8" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
-                            </svg>
-                        </div>
-                        <span id="led-status-text-8" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
+                <!-- Slider -->
+                <div class="w-full">
+                    <input type="range" id="slider-10" min="0" max="255" value="0" class="w-full">
+                    <div class="barra-intensidade">
+                        <div id="barra-10" class="preenchimento" style="width: 0%;"></div>
                     </div>
-                    <div class="w-full grid grid-cols-2 gap-2">
-                        <button id="btn-on-8" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
-                        <button id="btn-off-8" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-2">Porta 8</p>
+                    <p id="label-intensidade-10" class="label-intensidade">Intensidade: 0% (0/255)</p>
                 </div>
-
-                <!-- LED 9 -->
-                <div class="card-led rounded-2xl p-6 flex flex-col items-center">
-                    <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
-                    <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
-                        <div id="led-virtual-9" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
-                            <svg id="lamp-icon-9" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
-                            </svg>
-                        </div>
-                        <span id="led-status-text-9" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
-                    </div>
-                    <div class="w-full grid grid-cols-2 gap-2">
-                        <button id="btn-on-9" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
-                        <button id="btn-off-9" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-2">Porta 9</p>
-                </div>
-
-                <!-- LED 10 - PWM -->
-                <div class="card-led rounded-2xl p-6 flex flex-col items-center">
-                    <p class="text-xs text-slate-500 mb-2">🎚️ Intensidade Variável</p>
-                    <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
-                        <div id="led-virtual-10" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
-                            <svg id="lamp-icon-10" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
-                            </svg>
-                        </div>
-                        <span id="led-status-text-10" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">0%</span>
-                    </div>
-                    <div class="w-full">
-                        <div class="barra-intensidade">
-                            <div id="barra-10" class="preenchimento" style="width: 0%;"></div>
-                        </div>
-                        <p id="label-intensidade-10" class="label-intensidade">Intensidade: 0%</p>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-2">Porta 10 (PWM) - Potenciômetro A0</p>
-                </div>
-
-                <!-- LED 13 -->
-                <div class="card-led rounded-2xl p-6 flex flex-col items-center">
-                    <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
-                    <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
-                        <div id="led-virtual-13" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
-                            <svg id="lamp-icon-13" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
-                            </svg>
-                        </div>
-                        <span id="led-status-text-13" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
-                    </div>
-                    <div class="w-full grid grid-cols-2 gap-2">
-                        <button id="btn-on-13" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
-                        <button id="btn-off-13" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-2">Porta 13</p>
-                </div>
-
+                <p class="text-[10px] text-slate-500 mt-2">Porta 10 (PWM) - Slider</p>
             </div>
 
-            <!-- BOTÕES GERAIS -->
-            <div class="w-full max-w-6xl grid grid-cols-2 gap-4 mt-6">
-                <button id="btn-all-on" class="py-3 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition">💡 Ligar Todos</button>
-                <button id="btn-all-off" class="py-3 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 transition">⚡ Desligar Todos</button>
+            <!-- LED 13 -->
+            <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
+                <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
+                    <div id="led-virtual-13" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
+                        <svg id="lamp-icon-13" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
+                        </svg>
+                    </div>
+                    <span id="led-status-text-13" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
+                </div>
+                <div class="w-full grid grid-cols-2 gap-2">
+                    <button id="btn-on-13" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
+                    <button id="btn-off-13" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-2">Porta 13</p>
             </div>
 
-            <!-- LOG -->
-            <div class="w-full max-w-6xl mt-6">
-                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-800">
-                    <p class="text-xs text-slate-500 mb-2">📋 LOG</p>
-                    <div id="log-area" class="log-area text-xs">
-                        <p class="info">🔄 Aguardando inicialização...</p>
-                    </div>
+        </div>
+
+        <!-- BOTÕES GERAIS -->
+        <div class="w-full max-w-6xl grid grid-cols-2 gap-4 mt-6">
+            <button id="btn-all-on" class="py-3 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition">💡 Ligar Todos</button>
+            <button id="btn-all-off" class="py-3 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 transition">⚡ Desligar Todos</button>
+        </div>
+
+        <!-- GRÁFICO DO POTENCIÔMETRO -->
+        <div class="w-full max-w-6xl mt-6">
+            <div class="card-grafico">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-white">📊 Sensor A0 - Potenciômetro</h2>
+                    <span id="valor-pot" class="text-xs text-slate-400">Valor: 0 / 1023</span>
+                </div>
+                <canvas id="grafico-pot" height="150"></canvas>
+            </div>
+        </div>
+
+        <!-- LOG -->
+        <div class="w-full max-w-6xl mt-6">
+            <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-800">
+                <p class="text-xs text-slate-500 mb-2">📋 LOG</p>
+                <div id="log-area" class="log-area text-xs">
+                    <p class="info">🔄 Inicializando sistema...</p>
                 </div>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
 
     <!-- ========================================== -->
-    <!-- JAVASCRIPT PRINCIPAL -->
+    <!-- JAVASCRIPT -->
     <!-- ========================================== -->
     <script>
         (function() {
@@ -335,6 +248,7 @@
             const PORT_PWM = 10;
             const TOPICO = 'led';
             const TOPICO_POT = 'led/pot';
+            const TOPICO_PWM = 'led/pwm';
             const BROKER = 'broker.hivemq.com';
             const PORTA = 8884;
 
@@ -343,18 +257,16 @@
             let ledStates = {8: 0, 9: 0, 10: 0, 13: 0};
             let intensidade10 = 0;
             let tentativas = 0;
-            let sistemaPronto = false;
+            let dadosPot = [];
 
             // ==========================================
             // DOM
             // ==========================================
-            const loading = document.getElementById('loading');
-            const app = document.getElementById('app');
-            
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
             const logArea = document.getElementById('log-area');
             const btnReconectar = document.getElementById('btn-reconectar');
+            const valorPotElement = document.getElementById('valor-pot');
 
             const ledVirtuals = {};
             const lampIcons = {};
@@ -375,9 +287,58 @@
             const ledStatus10 = document.getElementById('led-status-text-10');
             const barra10 = document.getElementById('barra-10');
             const label10 = document.getElementById('label-intensidade-10');
+            const slider10 = document.getElementById('slider-10');
 
             const btnAllOn = document.getElementById('btn-all-on');
             const btnAllOff = document.getElementById('btn-all-off');
+
+            // ==========================================
+            // GRÁFICO
+            // ==========================================
+            const ctx = document.getElementById('grafico-pot').getContext('2d');
+            const grafico = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Valor do Potenciômetro (A0)',
+                        data: [],
+                        borderColor: '#60a5fa',
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#94a3b8',
+                                font: { size: 10 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b', font: { size: 8 } },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 1023,
+                            ticks: { color: '#64748b', font: { size: 8 } },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        }
+                    },
+                    animation: {
+                        duration: 200
+                    }
+                }
+            });
 
             // ==========================================
             // LOG
@@ -441,6 +402,9 @@
                 intensidade10 = intensidade;
                 ledStates[10] = intensidade > 0 ? 1 : 0;
 
+                // Atualiza o slider
+                slider10.value = intensidade;
+
                 if (intensidade > 0) {
                     const brilho = Math.round((intensidade / 255) * 100);
                     ledVirtual10.className = `w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500`;
@@ -457,7 +421,7 @@
                 }
 
                 barra10.style.width = percentual + '%';
-                label10.textContent = `Intensidade: ${percentual}%`;
+                label10.textContent = `Intensidade: ${percentual}% (${intensidade}/255)`;
             }
 
             function updateAllLEDs(state) {
@@ -467,6 +431,24 @@
                 } else {
                     updateLedPWM(0);
                 }
+            }
+
+            // ==========================================
+            // GRÁFICO
+            // ==========================================
+            function atualizarGrafico(valor) {
+                const agora = new Date().toLocaleTimeString();
+                
+                dadosPot.push({x: agora, y: valor});
+                if (dadosPot.length > 30) {
+                    dadosPot.shift();
+                }
+
+                grafico.data.labels = dadosPot.map(d => d.x);
+                grafico.data.datasets[0].data = dadosPot.map(d => d.y);
+                grafico.update('none');
+
+                valorPotElement.textContent = `Valor: ${valor} / 1023`;
             }
 
             // ==========================================
@@ -488,6 +470,22 @@
                 }
             }
 
+            function publicarPWM(valor) {
+                if (!client || !conectado) {
+                    log('❌ Não conectado ao MQTT', 'erro');
+                    return;
+                }
+                try {
+                    const msg = new Paho.MQTT.Message(String(valor));
+                    msg.destinationName = TOPICO_PWM;
+                    msg.qos = 1;
+                    client.send(msg);
+                    log(`🎚️ PWM enviado: ${valor}`, 'info');
+                } catch (e) {
+                    log(`❌ Erro ao publicar PWM: ${e}`, 'erro');
+                }
+            }
+
             function conectarMQTT() {
                 tentativas++;
                 log(`🔄 Tentativa ${tentativas}...`, 'info');
@@ -498,7 +496,6 @@
                     client = null;
                 }
 
-                // Verifica se a biblioteca está disponível
                 if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
                     log('❌ Biblioteca MQTT não disponível', 'erro');
                     setTimeout(() => conectarMQTT(), 3000);
@@ -523,9 +520,8 @@
                         
                         if (topic === TOPICO_POT) {
                             const valor = parseInt(payload);
-                            if (!isNaN(valor) && valor >= 0 && valor <= 255) {
-                                updateLedPWM(valor);
-                                log(`🎚️ Potenciômetro: ${Math.round((valor/255)*100)}%`, 'info');
+                            if (!isNaN(valor) && valor >= 0 && valor <= 1023) {
+                                atualizarGrafico(valor);
                             }
                             return;
                         }
@@ -603,6 +599,13 @@
                 });
             });
 
+            // Slider do LED10
+            slider10.addEventListener('input', function() {
+                const valor = parseInt(this.value);
+                updateLedPWM(valor);
+                publicarPWM(valor);
+            });
+
             btnAllOn.addEventListener('click', function() {
                 publicar('ALLON');
                 updateAllLEDs(1);
@@ -621,33 +624,42 @@
             // ==========================================
             // INICIALIZAÇÃO
             // ==========================================
-            async function iniciarSistema() {
+            function iniciarSistema() {
                 log('🚀 Iniciando sistema...', 'info');
                 setStatus('offline', 'Carregando...');
                 updateAllLEDs(0);
+                
+                // Inicializa dados do gráfico
+                for (let i = 0; i < 30; i++) {
+                    dadosPot.push({x: '', y: 0});
+                }
+                atualizarGrafico(0);
 
-                // Tenta carregar a biblioteca MQTT
-                try {
-                    log('⏳ Carregando biblioteca MQTT...', 'aviso');
-                    await carregarMQTT();
-                    log('✅ Biblioteca MQTT carregada!', 'sucesso');
-                } catch (e) {
-                    log(`❌ Erro ao carregar biblioteca: ${e}`, 'erro');
-                    log('🔄 Tentando novamente em 3 segundos...', 'aviso');
-                    setTimeout(iniciarSistema, 3000);
+                // Carrega a biblioteca MQTT
+                carregarMQTT();
+            }
+
+            function carregarMQTT() {
+                if (typeof Paho !== 'undefined' && typeof Paho.MQTT !== 'undefined') {
+                    log('✅ Biblioteca MQTT disponível', 'sucesso');
+                    conectarMQTT();
                     return;
                 }
 
-                // Esconde o loading e mostra o app
-                loading.style.display = 'none';
-                app.style.display = 'flex';
-                sistemaPronto = true;
-
-                // Conecta ao MQTT
-                conectarMQTT();
+                log('⏳ Carregando biblioteca MQTT...', 'aviso');
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js';
+                script.onload = function() {
+                    log('✅ Biblioteca MQTT carregada!', 'sucesso');
+                    conectarMQTT();
+                };
+                script.onerror = function() {
+                    log('❌ Falha ao carregar biblioteca', 'erro');
+                    setTimeout(carregarMQTT, 3000);
+                };
+                document.head.appendChild(script);
             }
 
-            // Inicia o sistema
             iniciarSistema();
 
             window.__iot = {
