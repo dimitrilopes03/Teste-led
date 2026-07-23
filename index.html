@@ -371,7 +371,14 @@
                 13: "esp32/arduino/porta13"
             };
 
-            let currentTopics = { ...defaultTopics };
+            // Carrega tópicos salvos do localStorage ou usa padrão
+            let currentTopics = {
+                8: localStorage.getItem("mqtt_topic_8") || defaultTopics[8],
+                9: localStorage.getItem("mqtt_topic_9") || defaultTopics[9],
+                10: localStorage.getItem("mqtt_topic_10") || defaultTopics[10],
+                13: localStorage.getItem("mqtt_topic_13") || defaultTopics[13]
+            };
+
             let client = null;
             let isConnected = false;
             let ledStates = { 8: 0, 9: 0, 10: 0, 13: 0 };
@@ -471,12 +478,13 @@
                     const topic = message.destinationName;
                     console.log(`[MQTT] mensagem em ${topic}:`, payload);
 
-                    // identifica qual porta
+                    // identifica qual porta comparando com os tópicos atuais
                     let port = null;
-                    if (topic === currentTopics[8]) port = 8;
-                    else if (topic === currentTopics[9]) port = 9;
-                    else if (topic === currentTopics[10]) port = 10;
-                    else if (topic === currentTopics[13]) port = 13;
+                    [8, 9, 10, 13].forEach(portNum => {
+                        if (topic === currentTopics[portNum]) {
+                            port = portNum;
+                        }
+                    });
 
                     if (port) {
                         if (payload === '1') {
@@ -537,6 +545,15 @@
 
                 currentTopics = { ...newTopics };
                 updateFooterTopics();
+                saveTopicsToLocalStorage();
+            }
+
+            // --- salvar tópicos no localStorage ---
+            function saveTopicsToLocalStorage() {
+                [8, 9, 10, 13].forEach(port => {
+                    localStorage.setItem(`mqtt_topic_${port}`, currentTopics[port]);
+                });
+                console.log('[localStorage] tópicos salvos:', currentTopics);
             }
 
             // --- publicar comando ---
@@ -597,6 +614,7 @@
                 } else {
                     currentTopics = { ...newTopics };
                     updateFooterTopics();
+                    saveTopicsToLocalStorage();
                 }
 
                 configModal.classList.add('hidden');
@@ -637,7 +655,7 @@
             init();
 
             // expor para debug (opcional)
-            window.__iot = { client, connectMqtt, publishCommand, currentTopics };
+            window.__iot = { client, connectMqtt, publishCommand, currentTopics, saveTopicsToLocalStorage };
         })();
     </script>
 </body>
