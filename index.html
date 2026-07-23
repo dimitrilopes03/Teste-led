@@ -420,29 +420,30 @@
         }
 
         // ==========================================
-        // CONEXÃO MQTT - CORRIGIDA
+        // CONEXÃO MQTT - USANDO PORTA 8884 COM SSL
         // ==========================================
         function connectMqtt() {
-            log("🔌 Conectando ao MQTT...");
-            setStatus('connecting', 'Conectando...');
+            log("🔌 Conectando ao MQTT via SSL (porta 8884)...");
+            setStatus('connecting', 'Conectando via SSL...');
             
             if (client) {
                 try { client.disconnect(); } catch (_) {}
                 client = null;
             }
 
-            // CONFIGURAÇÃO CORRETA PARA HIVEMQ
+            // CONFIGURAÇÃO PARA PORTA 8884 COM SSL
             const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
             const broker = 'broker.hivemq.com';
-            const port = 8000;  // PORTA CORRETA PARA WEBSOCKET HTTP
+            const port = 8884;  // PORTA 8884 COM SSL
             
             // Cria cliente com WebSocket
             client = new Paho.MQTT.Client(broker, port, clientId);
+            client.useSSL = true;  // HABILITAR SSL
 
             // Callback de conexão bem-sucedida
             const onConnect = () => {
                 isConnected = true;
-                log("✅ Conectado ao MQTT HiveMQ!");
+                log("✅ Conectado ao MQTT HiveMQ via SSL!");
                 setStatus('online', 'Sistema Online');
                 setButtonsEnabled(true);
                 
@@ -523,11 +524,11 @@
                 timeout: 10,
                 onSuccess: onConnect,
                 onFailure: onFailure,
-                useSSL: false,  // Sem SSL para porta 8000
+                useSSL: true,  // SSL HABILITADO
                 cleanSession: true,
             };
 
-            log("📡 Conectando ao broker.hivemq.com:8000...");
+            log("📡 Conectando ao broker.hivemq.com:8884 com SSL...");
             client.connect(options);
         }
 
