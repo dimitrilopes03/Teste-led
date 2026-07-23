@@ -356,4 +356,143 @@
                     client.onConnectionLost = function(response) {
                         conectado = false;
                         log('⚠️ Conexão perdida', 'aviso');
-                        setStatus('offline', 'Desconectado
+                        setStatus('offline', 'Desconectado');
+                    };
+
+                    client.onMessageArrived = function(message) {
+                        const payload = message.payloadString.trim();
+                        const topic = message.destinationName;
+                        
+                        // Verifica se é dado do potenciômetro
+                        if (topic === TOPICO_POT) {
+                            const valor = parseInt(payload);
+                            if (!isNaN(valor) && valor >= 0 && valor <= 255) {
+                                updateLedPWM(valor);
+                                log(`🎚️ Potenciômetro: ${Math.round((valor/255)*100)}%`, 'info');
+                            }
+                            return;
+                        }
+
+                        log(`📨 Recebido: ${payload}`, 'info');
+                        
+                        if (payload.startsWith('LED')) {
+                            const parts = payload.split('_');
+                            if (parts.length === 2) {
+                                const port = parseInt(parts[0].replace('LED', ''));
+                                const acao = parts[1];
+                                if (PORTS_ONOFF.includes(port)) {
+                                    if (acao === 'ON') {
+                                        updateLedUI(port, 1);
+                                        log(`💡 LED${port} LIGADO`, 'sucesso');
+                                    } else if (acao === 'OFF') {
+                                        updateLedUI(port, 0);
+                                        log(`💡 LED${port} DESLIGADO`, 'sucesso');
+                                    }
+                                }
+                            }
+                        } else if (payload === 'ALLON') {
+                            updateAllLEDs(1);
+                            log('💡 Todos LIGADOS', 'sucesso');
+                        } else if (payload === 'ALLOFF') {
+                            updateAllLEDs(0);
+                            log('💡 Todos DESLIGADOS', 'sucesso');
+                        }
+                    };
+
+                    const onConnect = function() {
+                        conectado = true;
+                        tentativas = 0;
+                        log('✅ Conectado ao HiveMQ!', 'sucesso');
+                        setStatus('online', 'Online');
+                        
+                        client.subscribe(TOPICO, {qos: 1});
+                        client.subscribe(TOPICO_POT, {qos: 1});
+                        log(`📥 Inscrito em: ${TOPICO} e ${TOPICO_POT}`, 'info');
+                    };
+
+                    const onFailure = function(err) {
+                        conectado = false;
+                        log(`❌ Falha: ${err.errorMessage || 'Erro'}`, 'erro');
+                        setStatus('offline', 'Falha');
+                        setTimeout(() => { if (!conectado) conectarMQTT(); }, 5000);
+                    };
+
+                    client.connect({
+                        timeout: 10,
+                        onSuccess: onConnect,
+                        onFailure: onFailure,
+                        useSSL: true,
+                        cleanSession: true
+                    });
+
+                } catch (e) {
+                    log(`❌ Erro: ${e}`, 'erro');
+                    setTimeout(() => { if (!conectado) conectarMQTT(); }, 5000);
+                }
+            }
+
+            // ==========================================
+            // EVENTOS
+            // ==========================================
+            PORTS_ONOFF.forEach(port => {
+                btnOns[port].addEventListener('click', function() {
+                    publicar(`LED${port}_ON`);
+                    updateLedUI(port, 1);
+                });
+                
+                btnOffs[port].addEventListener('click', function() {
+                    publicar(`LED${port}_OFF`);
+                    updateLedUI(port, 0);
+                });
+            });
+
+            btnAllOn.addEventListener('click', function() {
+                publicar('ALLON');
+                updateAllLEDs(1);
+            });
+
+            btnAllOff.addEventListener('click', function() {
+                publicar('ALLOFF');
+                updateAllLEDs(0);
+            });
+
+            btnReconectar.addEventListener('click', function() {
+                log('🔄 Reconectando manualmente...', 'info');
+                conectarMQTT();
+            });
+
+            // ==========================================
+            // INICIALIZAÇÃO
+            // ==========================================
+            function init() {
+                log('🚀 Iniciando...', 'info');
+                setStatus('offline', 'Desconectado');
+                updateAllLEDs(0);
+                
+                if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
+                    log('❌ Biblioteca MQTT não carregou!', 'erro');
+                    setTimeout(init, 2000);
+                    return;
+                }
+                
+                log('✅ Biblioteca MQTT carregada', 'sucesso');
+                conectarMQTT();
+            }
+
+            if (document.readyState === 'complete') {
+                init();
+            } else {
+                window.addEventListener('load', init);
+            }
+
+            window.__iot = {
+                conectar: conectarMQTT,
+                publicar: publicar,
+                estados: ledStates,
+                log: log
+            };
+
+        })();
+    </script>
+</body>
+</html>
