@@ -217,7 +217,7 @@
                         Desligar
                     </button>
                 </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 8</p>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-8">Porta 8</p>
             </div>
 
             <!-- LED PORTA 9 -->
@@ -243,7 +243,7 @@
                         Desligar
                     </button>
                 </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 9</p>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-9">Porta 9</p>
             </div>
 
             <!-- LED PORTA 10 -->
@@ -269,7 +269,7 @@
                         Desligar
                     </button>
                 </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 10</p>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-10">Porta 10</p>
             </div>
 
             <!-- LED PORTA 13 -->
@@ -295,368 +295,369 @@
                         Desligar
                     </button>
                 </div>
-                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono">Porta 13</p>
+                <p class="text-xs text-adaptive-sub opacity-60 mt-4 text-center font-mono" id="topic-display-13">Porta 13</p>
             </div>
 
         </div>
     </main>
 
-    <!-- RODAPÉ -->
+    <!-- RODAPÉ COM DEBUG -->
     <footer class="w-full text-center pb-4">
         <p class="text-xs text-adaptive-sub opacity-60">
-            Tópicos: <span id="footer-topics" class="font-mono text-xs">8 | 9 | 10 | 13</span>
+            <span id="footer-debug" class="font-mono text-[11px]">Aguardando conexão...</span>
         </p>
     </footer>
 
     <!-- LOGICA DE HARDWARE E CONEXÃO MQTT -->
     <script>
-        (function() {
-            // --- DOM refs ---
-            const statusPill = document.getElementById("status-pill");
-            const statusDot = document.getElementById("status-dot");
-            const statusText = document.getElementById("status-text");
-            const configModal = document.getElementById("config-modal");
-            const btnConfig = document.getElementById("btn-config");
-            const btnCancel = document.getElementById("btn-cancel");
-            const btnSaveTopics = document.getElementById("btn-save-topics");
-            const footerTopics = document.getElementById("footer-topics");
+        const PORTS = [8, 9, 10, 13];
+        const DEFAULT_TOPICS = {
+            8: "esp32/arduino/porta8",
+            9: "esp32/arduino/porta9",
+            10: "esp32/arduino/porta10",
+            13: "esp32/arduino/porta13"
+        };
 
-            const topicInputs = {
-                8: document.getElementById("topic-input-8"),
-                9: document.getElementById("topic-input-9"),
-                10: document.getElementById("topic-input-10"),
-                13: document.getElementById("topic-input-13")
-            };
+        // DOM references
+        const statusPill = document.getElementById("status-pill");
+        const statusDot = document.getElementById("status-dot");
+        const statusText = document.getElementById("status-text");
+        const configModal = document.getElementById("config-modal");
+        const btnConfig = document.getElementById("btn-config");
+        const btnCancel = document.getElementById("btn-cancel");
+        const btnSaveTopics = document.getElementById("btn-save-topics");
+        const footerDebug = document.getElementById("footer-debug");
 
-            const ledVirtuals = {
-                8: document.getElementById("led-virtual-8"),
-                9: document.getElementById("led-virtual-9"),
-                10: document.getElementById("led-virtual-10"),
-                13: document.getElementById("led-virtual-13")
-            };
+        const topicInputs = {};
+        const ledVirtuals = {};
+        const lampIcons = {};
+        const ledStatusTexts = {};
+        const btnOns = {};
+        const btnOffs = {};
+        const topicDisplays = {};
 
-            const lampIcons = {
-                8: document.getElementById("lamp-icon-8"),
-                9: document.getElementById("lamp-icon-9"),
-                10: document.getElementById("lamp-icon-10"),
-                13: document.getElementById("lamp-icon-13")
-            };
+        PORTS.forEach(port => {
+            topicInputs[port] = document.getElementById(`topic-input-${port}`);
+            ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
+            lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
+            ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
+            btnOns[port] = document.getElementById(`btn-on-${port}`);
+            btnOffs[port] = document.getElementById(`btn-off-${port}`);
+            topicDisplays[port] = document.getElementById(`topic-display-${port}`);
+        });
 
-            const ledStatusTexts = {
-                8: document.getElementById("led-status-text-8"),
-                9: document.getElementById("led-status-text-9"),
-                10: document.getElementById("led-status-text-10"),
-                13: document.getElementById("led-status-text-13")
-            };
+        // Estado
+        let currentTopics = {};
+        let client = null;
+        let isConnected = false;
+        let ledStates = {};
 
-            const btnOns = {
-                8: document.getElementById("btn-on-8"),
-                9: document.getElementById("btn-on-9"),
-                10: document.getElementById("btn-on-10"),
-                13: document.getElementById("btn-on-13")
-            };
+        // Carrega tópicos salvos
+        function loadTopics() {
+            PORTS.forEach(port => {
+                const saved = localStorage.getItem(`mqtt_topic_${port}`);
+                currentTopics[port] = saved || DEFAULT_TOPICS[port];
+                ledStates[port] = 0;
+                topicDisplays[port].textContent = currentTopics[port];
+            });
+            console.log("✅ Tópicos carregados:", currentTopics);
+        }
 
-            const btnOffs = {
-                8: document.getElementById("btn-off-8"),
-                9: document.getElementById("btn-off-9"),
-                10: document.getElementById("btn-off-10"),
-                13: document.getElementById("btn-off-13")
-            };
+        // Log com timestamp
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            console.log(`[${time}] ${msg}`);
+            footerDebug.textContent = `${msg.substring(0, 80)}...`;
+        }
 
-            // --- estado interno ---
-            const defaultTopics = {
-                8: "esp32/arduino/porta8",
-                9: "esp32/arduino/porta9",
-                10: "esp32/arduino/porta10",
-                13: "esp32/arduino/porta13"
-            };
+        // Salva tópicos
+        function saveTopicsToLocalStorage() {
+            PORTS.forEach(port => {
+                localStorage.setItem(`mqtt_topic_${port}`, currentTopics[port]);
+            });
+            console.log("💾 Tópicos salvos no localStorage:", currentTopics);
+        }
 
-            // Carrega tópicos salvos do localStorage ou usa padrão
-            let currentTopics = {
-                8: localStorage.getItem("mqtt_topic_8") || defaultTopics[8],
-                9: localStorage.getItem("mqtt_topic_9") || defaultTopics[9],
-                10: localStorage.getItem("mqtt_topic_10") || defaultTopics[10],
-                13: localStorage.getItem("mqtt_topic_13") || defaultTopics[13]
-            };
-
-            let client = null;
-            let isConnected = false;
-            let ledStates = { 8: 0, 9: 0, 10: 0, 13: 0 };
-
-            // --- helpers UI ---
-            function setStatus(mode, msg) {
-                statusDot.className = "w-2.5 h-2.5 rounded-full";
-                if (mode === 'sync') {
-                    statusDot.classList.add('bg-amber-400', 'pulse-anim');
-                    statusText.textContent = msg || 'Sincronizando...';
-                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-slate-200";
-                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500";
-                } else if (mode === 'online') {
-                    statusDot.classList.add('bg-emerald-400');
-                    statusText.textContent = msg || 'Sistema Online';
-                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
-                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
-                } else if (mode === 'offline') {
-                    statusDot.classList.add('bg-rose-500');
-                    statusText.textContent = msg || 'Desconectado';
-                    statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
-                    statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
-                }
+        // Status visual
+        function setStatus(mode, msg) {
+            statusDot.className = "w-2.5 h-2.5 rounded-full";
+            if (mode === 'sync') {
+                statusDot.classList.add('bg-amber-400', 'pulse-anim');
+                statusText.textContent = msg || 'Sincronizando...';
+                statusText.className = "text-xs font-semibold uppercase tracking-wider text-slate-200";
+                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/40 border border-slate-700/30 backdrop-blur-md transition-all duration-500";
+            } else if (mode === 'online') {
+                statusDot.classList.add('bg-emerald-400');
+                statusText.textContent = msg || 'Sistema Online';
+                statusText.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
+                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md transition-all duration-500";
+            } else if (mode === 'offline') {
+                statusDot.classList.add('bg-rose-500');
+                statusText.textContent = msg || 'Desconectado';
+                statusText.className = "text-xs font-semibold uppercase tracking-wider text-rose-500";
+                statusPill.className = "flex items-center gap-2 px-4 py-2 rounded-full bg-rose-950/30 border border-rose-500/20 backdrop-blur-md transition-all duration-500";
             }
+        }
 
-            function setButtonsEnabled(enabled) {
-                [8, 9, 10, 13].forEach(port => {
-                    if (enabled) {
-                        btnOns[port].disabled = false;
-                        btnOffs[port].disabled = false;
-                        btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
-                        btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
-                    } else {
-                        btnOns[port].disabled = true;
-                        btnOffs[port].disabled = true;
-                        btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
-                        btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
-                    }
-                });
-            }
-
-            function updateLedUI(port, state) {
-                if (state === 1) {
-                    ledVirtuals[port].className = "w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
-                    lampIcons[port].setAttribute("class", "w-16 h-16 text-orange-500 transition-colors duration-700");
-                    ledStatusTexts[port].innerText = "Ativo";
+        function setButtonsEnabled(enabled) {
+            PORTS.forEach(port => {
+                if (enabled) {
+                    btnOns[port].disabled = false;
+                    btnOffs[port].disabled = false;
+                    btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-emerald-600 border border-emerald-500 hover:bg-emerald-500 cursor-pointer shadow-lg shadow-emerald-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
+                    btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-rose-600 border border-rose-500 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-900/20 transition-all duration-300 active:scale-95 focus:outline-none";
                 } else {
-                    ledVirtuals[port].className = "w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
-                    lampIcons[port].setAttribute("class", "w-16 h-16 text-slate-500/60 transition-colors duration-700");
-                    ledStatusTexts[port].innerText = "Inativo";
+                    btnOns[port].disabled = true;
+                    btnOffs[port].disabled = true;
+                    btnOns[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
+                    btnOffs[port].className = "py-3 rounded-2xl font-semibold uppercase text-xs tracking-widest text-white bg-slate-700/40 border border-white/5 cursor-not-allowed opacity-40 transition-all duration-300 active:scale-95 focus:outline-none";
                 }
+            });
+        }
+
+        function updateLedUI(port, state) {
+            console.log(`🔄 Atualizando LED porta ${port} para estado: ${state}`);
+            if (state === 1) {
+                ledVirtuals[port].className = "w-32 h-32 rounded-full bg-yellow-300 flex items-center justify-center glow-active transition-all duration-700 ease-out";
+                lampIcons[port].setAttribute("class", "w-16 h-16 text-orange-500 transition-colors duration-700");
+                ledStatusTexts[port].innerText = "Ativo";
+            } else {
+                ledVirtuals[port].className = "w-32 h-32 rounded-full bg-slate-700/40 border border-white/10 flex items-center justify-center transition-all duration-700 ease-out";
+                lampIcons[port].setAttribute("class", "w-16 h-16 text-slate-500/60 transition-colors duration-700");
+                ledStatusTexts[port].innerText = "Inativo";
+            }
+            ledStates[port] = state;
+        }
+
+        // MQTT Connection
+        function connectMqtt() {
+            log("🔌 Conectando ao MQTT...");
+            
+            if (client) {
+                try { client.disconnect(); } catch (_) {}
+                client = null;
             }
 
-            // --- MQTT lógica ---
-            function connectMqtt() {
-                if (client) {
-                    try { client.disconnect(); } catch (_) {}
-                    client = null;
-                }
+            const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
+            const broker = 'broker.hivemq.com';
+            const port = 8884;
+            
+            client = new Paho.MQTT.Client(broker, port, clientId);
+            client.useSSL = true;
 
-                const clientId = 'web_' + Math.random().toString(16).substring(2, 10) + '_' + Date.now().toString(36);
-                const broker = 'broker.hivemq.com';
-                const port = 8884;
+            const onConnect = () => {
+                isConnected = true;
+                log("✅ Conectado ao MQTT HiveMQ!");
+                setStatus('online', 'Sistema Online');
+                setButtonsEnabled(true);
                 
-                client = new Paho.MQTT.Client(broker, port, clientId);
-                client.useSSL = true;
-
-                const onConnect = () => {
-                    isConnected = true;
-                    setStatus('online', 'Sistema Online');
-                    setButtonsEnabled(true);
-                    
-                    // inscreve em todos os tópicos
-                    [8, 9, 10, 13].forEach(portNum => {
-                        const topic = currentTopics[portNum];
-                        if (topic && topic.length > 0) {
-                            client.subscribe(topic, { qos: 0 });
-                            console.log('[MQTT] inscrito em:', topic);
-                        }
-                    });
-                };
-
-                const onFailure = (err) => {
-                    isConnected = false;
-                    setStatus('offline', 'Falha na conexão');
-                    setButtonsEnabled(false);
-                    console.warn('[MQTT] erro conexão:', err);
-                    setTimeout(() => {
-                        if (!isConnected) {
-                            connectMqtt();
-                        }
-                    }, 5000);
-                };
-
-                const onMessageArrived = (message) => {
-                    const payload = message.payloadString.trim();
-                    const topic = message.destinationName;
-                    console.log(`[MQTT] mensagem em ${topic}:`, payload);
-
-                    // identifica qual porta comparando com os tópicos atuais
-                    let port = null;
-                    [8, 9, 10, 13].forEach(portNum => {
-                        if (topic === currentTopics[portNum]) {
-                            port = portNum;
-                        }
-                    });
-
-                    if (port) {
-                        if (payload === '1') {
-                            ledStates[port] = 1;
-                            updateLedUI(port, 1);
-                        } else if (payload === '0') {
-                            ledStates[port] = 0;
-                            updateLedUI(port, 0);
-                        }
-                    }
-                };
-
-                client.onConnectionLost = (response) => {
-                    isConnected = false;
-                    setStatus('offline', 'Conexão perdida');
-                    setButtonsEnabled(false);
-                    console.warn('[MQTT] conexão perdida', response);
-                    setTimeout(() => {
-                        if (!isConnected) {
-                            connectMqtt();
-                        }
-                    }, 4000);
-                };
-
-                client.onMessageArrived = onMessageArrived;
-
-                const options = {
-                    timeout: 10,
-                    onSuccess: onConnect,
-                    onFailure: onFailure,
-                    useSSL: true,
-                };
-
-                client.connect(options);
-            }
-
-            // --- desinscrever e assinar novo tópico ---
-            function switchTopics(newTopics) {
-                if (!client || !isConnected) return;
-
-                [8, 9, 10, 13].forEach(port => {
-                    const oldTopic = currentTopics[port];
-                    const newTopic = newTopics[port];
-
-                    if (newTopic && newTopic.length > 0 && oldTopic !== newTopic) {
-                        try {
-                            if (oldTopic && oldTopic.length > 0) {
-                                client.unsubscribe(oldTopic, { qos: 0 });
-                                console.log('[MQTT] desinscrito de:', oldTopic);
-                            }
-                            client.subscribe(newTopic, { qos: 0 });
-                            console.log('[MQTT] inscrito em:', newTopic);
-                        } catch (e) {
-                            console.warn('[MQTT] erro ao trocar inscrição', e);
-                        }
+                // Subscribe to ALL topics
+                PORTS.forEach(portNum => {
+                    const topic = currentTopics[portNum];
+                    if (topic && topic.length > 0) {
+                        client.subscribe(topic, { qos: 1 });
+                        log(`📥 Inscrito em: ${topic}`);
                     }
                 });
+            };
 
-                currentTopics = { ...newTopics };
-                updateFooterTopics();
-                saveTopicsToLocalStorage();
-            }
-
-            // --- salvar tópicos no localStorage ---
-            function saveTopicsToLocalStorage() {
-                [8, 9, 10, 13].forEach(port => {
-                    localStorage.setItem(`mqtt_topic_${port}`, currentTopics[port]);
-                });
-                console.log('[localStorage] tópicos salvos:', currentTopics);
-            }
-
-            // --- publicar comando ---
-            function publishCommand(port, value) {
-                if (!client || !isConnected) {
-                    console.warn('[MQTT] não conectado');
-                    return;
-                }
-                const topic = currentTopics[port];
-                if (!topic || topic.length === 0) {
-                    console.warn('[MQTT] tópico inválido');
-                    return;
-                }
-                const msg = new Paho.MQTT.Message(String(value));
-                msg.destinationName = topic;
-                msg.qos = 0;
-                client.send(msg);
-                console.log(`[MQTT] publicado '${value}' em ${topic}`);
-            }
-
-            function updateFooterTopics() {
-                footerTopics.innerText = `${currentTopics[8]} | ${currentTopics[9]} | ${currentTopics[10]} | ${currentTopics[13]}`;
-            }
-
-            // --- EVENT LISTENERS DO MODAL ---
-            btnConfig.addEventListener('click', () => {
-                [8, 9, 10, 13].forEach(port => {
-                    topicInputs[port].value = currentTopics[port];
-                });
-                configModal.classList.remove('hidden');
-            });
-
-            btnCancel.addEventListener('click', () => {
-                configModal.classList.add('hidden');
-            });
-
-            function saveTopics() {
-                const newTopics = {
-                    8: topicInputs[8].value.trim(),
-                    9: topicInputs[9].value.trim(),
-                    10: topicInputs[10].value.trim(),
-                    13: topicInputs[13].value.trim()
-                };
-                
-                let valid = true;
-                for (let port of [8, 9, 10, 13]) {
-                    if (!newTopics[port]) {
-                        alert(`Porta ${port}: Digite um tópico válido.`);
-                        valid = false;
-                        break;
-                    }
-                }
-
-                if (!valid) return;
-
-                if (isConnected && client) {
-                    switchTopics(newTopics);
-                } else {
-                    currentTopics = { ...newTopics };
-                    updateFooterTopics();
-                    saveTopicsToLocalStorage();
-                }
-
-                configModal.classList.add('hidden');
-                console.log(`Tópicos atualizado para:`, currentTopics);
-            }
-
-            btnSaveTopics.addEventListener('click', saveTopics);
-            [topicInputs[8], topicInputs[9], topicInputs[10], topicInputs[13]].forEach(input => {
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') saveTopics();
-                });
-            });
-
-            configModal.addEventListener('click', (e) => {
-                if (e.target === configModal) {
-                    configModal.classList.add('hidden');
-                }
-            });
-
-            // --- eventos dos botões de ação ---
-            [8, 9, 10, 13].forEach(port => {
-                btnOns[port].addEventListener('click', () => publishCommand(port, "1"));
-                btnOffs[port].addEventListener('click', () => publishCommand(port, "0"));
-            });
-
-            // --- inicialização ---
-            function init() {
-                setStatus('sync', 'Sincronizando...');
+            const onFailure = (err) => {
+                isConnected = false;
+                log("❌ Falha na conexão MQTT");
+                setStatus('offline', 'Falha na conexão');
                 setButtonsEnabled(false);
-                [8, 9, 10, 13].forEach(port => {
-                    updateLedUI(port, 0);
-                    ledStates[port] = 0;
+                console.error('[MQTT] Erro:', err);
+                setTimeout(() => {
+                    if (!isConnected) {
+                        log("🔄 Tentando reconectar...");
+                        connectMqtt();
+                    }
+                }, 5000);
+            };
+
+            const onMessageArrived = (message) => {
+                const payload = message.payloadString.trim();
+                const topic = message.destinationName;
+                log(`📨 Mensagem recebida | Tópico: ${topic} | Payload: ${payload}`);
+
+                // Find which port this message belongs to
+                let matchedPort = null;
+                PORTS.forEach(portNum => {
+                    if (topic === currentTopics[portNum]) {
+                        matchedPort = portNum;
+                    }
                 });
-                updateFooterTopics();
-                connectMqtt();
+
+                if (matchedPort !== null) {
+                    console.log(`✅ Tópico corresponde à PORTA ${matchedPort}`);
+                    if (payload === '1' || payload === '1') {
+                        updateLedUI(matchedPort, 1);
+                    } else if (payload === '0' || payload === '0') {
+                        updateLedUI(matchedPort, 0);
+                    } else {
+                        console.warn(`⚠️ Payload inválido: ${payload}`);
+                    }
+                } else {
+                    console.warn(`❌ Tópico ${topic} não corresponde a nenhuma porta!`);
+                    console.table(currentTopics);
+                }
+            };
+
+            client.onConnectionLost = (response) => {
+                isConnected = false;
+                log("⚠️ Conexão MQTT perdida");
+                setStatus('offline', 'Conexão perdida');
+                setButtonsEnabled(false);
+                setTimeout(() => {
+                    if (!isConnected) {
+                        connectMqtt();
+                    }
+                }, 4000);
+            };
+
+            client.onMessageArrived = onMessageArrived;
+
+            const options = {
+                timeout: 10,
+                onSuccess: onConnect,
+                onFailure: onFailure,
+                useSSL: true,
+            };
+
+            client.connect(options);
+        }
+
+        // Trocar tópicos e reinscrever
+        function switchTopics(newTopics) {
+            if (!client || !isConnected) {
+                log("❌ MQTT não conectado, apenas salvando tópicos...");
+                currentTopics = { ...newTopics };
+                saveTopicsToLocalStorage();
+                PORTS.forEach(port => {
+                    topicDisplays[port].textContent = currentTopics[port];
+                });
+                return;
             }
 
-            init();
+            log("🔄 Trocando inscrições MQTT...");
 
-            // expor para debug (opcional)
-            window.__iot = { client, connectMqtt, publishCommand, currentTopics, saveTopicsToLocalStorage };
-        })();
+            PORTS.forEach(port => {
+                const oldTopic = currentTopics[port];
+                const newTopic = newTopics[port];
+
+                if (newTopic && newTopic.length > 0 && oldTopic !== newTopic) {
+                    try {
+                        if (oldTopic && oldTopic.length > 0) {
+                            client.unsubscribe(oldTopic, { qos: 1 });
+                            log(`📤 Desinscrito de: ${oldTopic}`);
+                        }
+                        client.subscribe(newTopic, { qos: 1 });
+                        log(`📥 Inscrito em: ${newTopic}`);
+                    } catch (e) {
+                        console.error('[MQTT] Erro ao trocar:', e);
+                    }
+                }
+            });
+
+            currentTopics = { ...newTopics };
+            saveTopicsToLocalStorage();
+            PORTS.forEach(port => {
+                topicDisplays[port].textContent = currentTopics[port];
+            });
+        }
+
+        // Publicar comando
+        function publishCommand(port, value) {
+            if (!client || !isConnected) {
+                log(`❌ Não conectado ao MQTT`);
+                return;
+            }
+            const topic = currentTopics[port];
+            if (!topic || topic.length === 0) {
+                log(`❌ Tópico inválido para porta ${port}`);
+                return;
+            }
+            const msg = new Paho.MQTT.Message(String(value));
+            msg.destinationName = topic;
+            msg.qos = 1;
+            client.send(msg);
+            log(`📤 Publicado '${value}' em porta ${port}: ${topic}`);
+        }
+
+        // Modal events
+        btnConfig.addEventListener('click', () => {
+            PORTS.forEach(port => {
+                topicInputs[port].value = currentTopics[port];
+            });
+            configModal.classList.remove('hidden');
+        });
+
+        btnCancel.addEventListener('click', () => {
+            configModal.classList.add('hidden');
+        });
+
+        function saveTopics() {
+            const newTopics = {};
+            let valid = true;
+            
+            PORTS.forEach(port => {
+                const val = topicInputs[port].value.trim();
+                if (!val) {
+                    alert(`Porta ${port}: Digite um tópico válido.`);
+                    valid = false;
+                    return;
+                }
+                newTopics[port] = val;
+            });
+
+            if (!valid) return;
+
+            switchTopics(newTopics);
+            configModal.classList.add('hidden');
+            log(`✅ Tópicos atualizados`);
+        }
+
+        btnSaveTopics.addEventListener('click', saveTopics);
+        PORTS.forEach(port => {
+            topicInputs[port].addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') saveTopics();
+            });
+        });
+
+        configModal.addEventListener('click', (e) => {
+            if (e.target === configModal) {
+                configModal.classList.add('hidden');
+            }
+        });
+
+        // Button events
+        PORTS.forEach(port => {
+            btnOns[port].addEventListener('click', () => publishCommand(port, "1"));
+            btnOffs[port].addEventListener('click', () => publishCommand(port, "0"));
+        });
+
+        // Init
+        function init() {
+            setStatus('sync', 'Sincronizando...');
+            setButtonsEnabled(false);
+            loadTopics();
+            PORTS.forEach(port => {
+                updateLedUI(port, 0);
+            });
+            connectMqtt();
+        }
+
+        init();
+
+        // Debug global
+        window.__iot = {
+            client,
+            connectMqtt,
+            publishCommand,
+            currentTopics,
+            log,
+            refreshTopics: loadTopics
+        };
     </script>
 </body>
 </html>
