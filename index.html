@@ -6,16 +6,10 @@
     <title>Central de Iluminação IoT</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- PAHO MQTT - VERSÃO CONFIÁVEL -->
     <script src="https://cdn.jsdelivr.net/npm/paho-mqtt@1.1.0/paho-mqtt.min.js"></script>
 
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #0f172a;
-            min-height: 100vh;
-        }
+        body { font-family: 'Inter', sans-serif; background: #0f172a; min-height: 100vh; }
         
         .glow-active {
             box-shadow: 0 0 40px 10px rgba(253, 224, 71, 0.6), 
@@ -28,44 +22,41 @@
             50% { transform: scale(1.03); opacity: 1; }
         }
 
-        .pulse-anim {
-            animation: pulse-status 1.5s infinite ease-in-out;
-        }
+        .pulse-anim { animation: pulse-status 1.5s infinite ease-in-out; }
+        @keyframes pulse-status { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
-        @keyframes pulse-status {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
+        .btn-on.active { background-color: #22c55e !important; border-color: #16a34a !important; }
+        .btn-off.active { background-color: #ef4444 !important; border-color: #dc2626 !important; }
 
-        .btn-on.active {
-            background-color: #22c55e !important;
-            border-color: #16a34a !important;
-        }
-        .btn-off.active {
-            background-color: #ef4444 !important;
-            border-color: #dc2626 !important;
-        }
-
-        .log-area {
-            max-height: 100px;
-            overflow-y: auto;
-            font-size: 11px;
-            font-family: monospace;
-        }
-        .log-area p {
-            margin: 2px 0;
-            padding: 2px 6px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
+        .log-area { max-height: 100px; overflow-y: auto; font-size: 11px; font-family: monospace; }
+        .log-area p { margin: 2px 0; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-area .erro { color: #ef4444; }
         .log-area .sucesso { color: #22c55e; }
         .log-area .info { color: #60a5fa; }
         .log-area .aviso { color: #fbbf24; }
 
-        .card-led {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
+        .card-led { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        .barra-intensidade {
+            width: 100%;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .barra-intensidade .preenchimento {
+            height: 100%;
+            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .label-intensidade {
+            font-size: 10px;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -74,22 +65,15 @@
     <!-- CABEÇALHO -->
     <header class="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
         <div>
-            <h1 class="text-2xl font-bold text-white">
-                💡 Central IoT
-            </h1>
-            <p class="text-sm text-slate-400">Portas 8, 9, 10 e 13</p>
+            <h1 class="text-2xl font-bold text-white">💡 Central IoT</h1>
+            <p class="text-sm text-slate-400">Portas 8, 9, 10 (PWM) e 13</p>
         </div>
-
         <div class="flex items-center gap-3">
             <div id="status-pill" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700/50">
                 <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Desconectado
-                </span>
+                <span id="status-text" class="text-xs font-semibold uppercase tracking-wider text-slate-300">Desconectado</span>
             </div>
-            <button id="btn-reconectar" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition">
-                🔄 Reconectar
-            </button>
+            <button id="btn-reconectar" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition">🔄 Reconectar</button>
         </div>
     </header>
 
@@ -97,8 +81,9 @@
     <main class="flex-grow flex flex-col items-center justify-center my-6 w-full">
         <div class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-4 gap-4">
             
-            <!-- LED 8 -->
+            <!-- LED 8 - Liga/Desliga -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
                     <div id="led-virtual-8" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
                         <svg id="lamp-icon-8" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -114,8 +99,9 @@
                 <p class="text-[10px] text-slate-500 mt-2">Porta 8</p>
             </div>
 
-            <!-- LED 9 -->
+            <!-- LED 9 - Liga/Desliga -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
                     <div id="led-virtual-9" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
                         <svg id="lamp-icon-9" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -131,25 +117,29 @@
                 <p class="text-[10px] text-slate-500 mt-2">Porta 9</p>
             </div>
 
-            <!-- LED 10 -->
+            <!-- LED 10 - Intensidade Variável (PWM) -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🎚️ Intensidade Variável</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
                     <div id="led-virtual-10" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
                         <svg id="lamp-icon-10" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v3m0 0h.01m-0.01 0H12m0-3a3 3 0 003-3V9a3 3 0 10-6 0v6a3 3 0 003 3zm0-13.5V3m0 3.5a1.5 1.5 0 000 3M12 18a1.5 1.5 0 000-3m0 0a4.5 4.5 0 00-4.5-4.5m9 0a4.5 4.5 0 00-4.5 4.5" />
                         </svg>
                     </div>
-                    <span id="led-status-text-10" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">Inativo</span>
+                    <span id="led-status-text-10" class="absolute bottom-0 text-xs font-semibold text-slate-400 uppercase">0%</span>
                 </div>
-                <div class="w-full grid grid-cols-2 gap-2">
-                    <button id="btn-on-10" class="btn-on py-2 rounded-xl font-semibold text-xs text-white bg-emerald-600 hover:bg-emerald-500 transition">Ligar</button>
-                    <button id="btn-off-10" class="btn-off py-2 rounded-xl font-semibold text-xs text-white bg-rose-600 hover:bg-rose-500 transition">Desligar</button>
+                <div class="w-full">
+                    <div class="barra-intensidade">
+                        <div id="barra-10" class="preenchimento" style="width: 0%;"></div>
+                    </div>
+                    <p id="label-intensidade-10" class="label-intensidade">Intensidade: 0%</p>
                 </div>
-                <p class="text-[10px] text-slate-500 mt-2">Porta 10</p>
+                <p class="text-[10px] text-slate-500 mt-2">Porta 10 (PWM) - Potenciômetro A0</p>
             </div>
 
-            <!-- LED 13 -->
+            <!-- LED 13 - Liga/Desliga -->
             <div class="card-led rounded-2xl p-6 flex flex-col items-center">
+                <p class="text-xs text-slate-500 mb-2">🔘 Liga/Desliga</p>
                 <div class="relative w-32 h-32 flex flex-col items-center justify-center mb-4">
                     <div id="led-virtual-13" class="w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500">
                         <svg id="lamp-icon-13" class="w-12 h-12 text-slate-500/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,12 +159,8 @@
 
         <!-- BOTÕES GERAIS -->
         <div class="w-full max-w-6xl grid grid-cols-2 gap-4 mt-6">
-            <button id="btn-all-on" class="py-3 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition">
-                💡 Ligar Todos
-            </button>
-            <button id="btn-all-off" class="py-3 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 transition">
-                ⚡ Desligar Todos
-            </button>
+            <button id="btn-all-on" class="py-3 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition">💡 Ligar Todos</button>
+            <button id="btn-all-off" class="py-3 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 transition">⚡ Desligar Todos</button>
         </div>
 
         <!-- LOG -->
@@ -183,7 +169,6 @@
                 <p class="text-xs text-slate-500 mb-2">📋 LOG</p>
                 <div id="log-area" class="log-area text-xs">
                     <p class="info">🔄 Inicializando sistema...</p>
-                    <p class="info">📡 Conectando ao broker.hivemq.com:8884...</p>
                 </div>
             </div>
         </div>
@@ -196,25 +181,20 @@
         (function() {
             'use strict';
 
-            // ==========================================
-            // CONFIGURAÇÕES
-            // ==========================================
-            const PORTS = [8, 9, 10, 13];
+            const PORTS_ONOFF = [8, 9, 13];
+            const PORT_PWM = 10;
             const TOPICO = 'led';
+            const TOPICO_POT = 'led/pot';
             const BROKER = 'broker.hivemq.com';
             const PORTA = 8884;
 
-            // ==========================================
-            // ESTADO
-            // ==========================================
             let client = null;
             let conectado = false;
             let ledStates = {8: 0, 9: 0, 10: 0, 13: 0};
+            let intensidade10 = 0;
             let tentativas = 0;
 
-            // ==========================================
             // DOM
-            // ==========================================
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
             const logArea = document.getElementById('log-area');
@@ -226,13 +206,20 @@
             const btnOns = {};
             const btnOffs = {};
 
-            PORTS.forEach(port => {
+            PORTS_ONOFF.forEach(port => {
                 ledVirtuals[port] = document.getElementById(`led-virtual-${port}`);
                 lampIcons[port] = document.getElementById(`lamp-icon-${port}`);
                 ledStatusTexts[port] = document.getElementById(`led-status-text-${port}`);
                 btnOns[port] = document.getElementById(`btn-on-${port}`);
                 btnOffs[port] = document.getElementById(`btn-off-${port}`);
             });
+
+            // LED10 (PWM) - elementos específicos
+            const ledVirtual10 = document.getElementById('led-virtual-10');
+            const lampIcon10 = document.getElementById('lamp-icon-10');
+            const ledStatus10 = document.getElementById('led-status-text-10');
+            const barra10 = document.getElementById('barra-10');
+            const label10 = document.getElementById('label-intensidade-10');
 
             const btnAllOn = document.getElementById('btn-all-on');
             const btnAllOff = document.getElementById('btn-all-off');
@@ -246,10 +233,7 @@
                 p.textContent = `[${time}] ${mensagem}`;
                 if (tipo) p.className = tipo;
                 logArea.appendChild(p);
-                
-                while (logArea.children.length > 30) {
-                    logArea.removeChild(logArea.firstChild);
-                }
+                while (logArea.children.length > 30) logArea.removeChild(logArea.firstChild);
                 logArea.scrollTop = logArea.scrollHeight;
                 console.log(`[${time}] ${mensagem}`);
             }
@@ -259,7 +243,6 @@
             // ==========================================
             function setStatus(modo, mensagem) {
                 statusDot.className = 'w-2.5 h-2.5 rounded-full';
-                
                 if (modo === 'conectando') {
                     statusDot.classList.add('bg-yellow-400', 'pulse-anim');
                     statusText.textContent = mensagem || 'Conectando...';
@@ -276,7 +259,7 @@
             }
 
             // ==========================================
-            // LED UI
+            // LED UI - ON/OFF
             // ==========================================
             function updateLedUI(port, state) {
                 if (state === 1) {
@@ -295,8 +278,44 @@
                 ledStates[port] = state;
             }
 
+            // ==========================================
+            // LED UI - PWM (Intensidade)
+            // ==========================================
+            function updateLedPWM(intensidade) {
+                // intensidade: 0 a 255
+                const percentual = Math.round((intensidade / 255) * 100);
+                intensidade10 = intensidade;
+                ledStates[10] = intensidade > 0 ? 1 : 0;
+
+                // Atualiza a lâmpada
+                if (intensidade > 0) {
+                    const brilho = Math.round((intensidade / 255) * 100);
+                    // Amarelo com intensidade variável
+                    ledVirtual10.className = `w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500`;
+                    ledVirtual10.style.background = `rgba(253, 224, 71, ${brilho/100})`;
+                    ledVirtual10.style.boxShadow = `0 0 ${40 + brilho}px ${10 + brilho/5}px rgba(253, 224, 71, ${brilho/200})`;
+                    lampIcon10.setAttribute('class', `w-12 h-12 text-orange-${Math.min(5, Math.floor(brilho/20)+1)}00 transition-colors duration-500`);
+                    ledStatus10.innerHTML = `<span class="text-emerald-400">● ${percentual}%</span>`;
+                } else {
+                    ledVirtual10.className = 'w-24 h-24 rounded-full bg-slate-700/60 border border-white/10 flex items-center justify-center transition-all duration-500';
+                    ledVirtual10.style.background = '';
+                    ledVirtual10.style.boxShadow = '';
+                    lampIcon10.setAttribute('class', 'w-12 h-12 text-slate-500/60 transition-colors duration-500');
+                    ledStatus10.innerHTML = '<span class="text-slate-400">○ 0%</span>';
+                }
+
+                // Atualiza a barra
+                barra10.style.width = percentual + '%';
+                label10.textContent = `Intensidade: ${percentual}%`;
+            }
+
             function updateAllLEDs(state) {
-                PORTS.forEach(port => updateLedUI(port, state));
+                PORTS_ONOFF.forEach(port => updateLedUI(port, state));
+                if (state === 1) {
+                    updateLedPWM(255);
+                } else {
+                    updateLedPWM(0);
+                }
             }
 
             // ==========================================
@@ -337,139 +356,4 @@
                     client.onConnectionLost = function(response) {
                         conectado = false;
                         log('⚠️ Conexão perdida', 'aviso');
-                        setStatus('offline', 'Desconectado');
-                    };
-
-                    client.onMessageArrived = function(message) {
-                        const payload = message.payloadString.trim();
-                        log(`📨 Recebido: ${payload}`, 'info');
-                        
-                        if (payload.startsWith('LED')) {
-                            const parts = payload.split('_');
-                            if (parts.length === 2) {
-                                const port = parseInt(parts[0].replace('LED', ''));
-                                const acao = parts[1];
-                                if (PORTS.includes(port)) {
-                                    if (acao === 'ON') {
-                                        updateLedUI(port, 1);
-                                        log(`💡 LED${port} LIGADO`, 'sucesso');
-                                    } else if (acao === 'OFF') {
-                                        updateLedUI(port, 0);
-                                        log(`💡 LED${port} DESLIGADO`, 'sucesso');
-                                    }
-                                }
-                            }
-                        } else if (payload === 'ALLON') {
-                            updateAllLEDs(1);
-                            log('💡 Todos LIGADOS', 'sucesso');
-                        } else if (payload === 'ALLOFF') {
-                            updateAllLEDs(0);
-                            log('💡 Todos DESLIGADOS', 'sucesso');
-                        }
-                    };
-
-                    const onConnect = function() {
-                        conectado = true;
-                        tentativas = 0;
-                        log('✅ Conectado ao HiveMQ!', 'sucesso');
-                        setStatus('online', 'Online');
-                        
-                        client.subscribe(TOPICO, {qos: 1});
-                        log(`📥 Inscrito em: ${TOPICO}`, 'info');
-                    };
-
-                    const onFailure = function(err) {
-                        conectado = false;
-                        log(`❌ Falha: ${err.errorMessage || 'Erro'}`, 'erro');
-                        setStatus('offline', 'Falha');
-                        
-                        setTimeout(function() {
-                            if (!conectado) conectarMQTT();
-                        }, 5000);
-                    };
-
-                    client.connect({
-                        timeout: 10,
-                        onSuccess: onConnect,
-                        onFailure: onFailure,
-                        useSSL: true,
-                        cleanSession: true
-                    });
-
-                } catch (e) {
-                    log(`❌ Erro: ${e}`, 'erro');
-                    setTimeout(function() {
-                        if (!conectado) conectarMQTT();
-                    }, 5000);
-                }
-            }
-
-            // ==========================================
-            // EVENTOS
-            // ==========================================
-            PORTS.forEach(port => {
-                btnOns[port].addEventListener('click', function() {
-                    publicar(`LED${port}_ON`);
-                    updateLedUI(port, 1);
-                });
-                
-                btnOffs[port].addEventListener('click', function() {
-                    publicar(`LED${port}_OFF`);
-                    updateLedUI(port, 0);
-                });
-            });
-
-            btnAllOn.addEventListener('click', function() {
-                publicar('ALLON');
-                updateAllLEDs(1);
-            });
-
-            btnAllOff.addEventListener('click', function() {
-                publicar('ALLOFF');
-                updateAllLEDs(0);
-            });
-
-            btnReconectar.addEventListener('click', function() {
-                log('🔄 Reconectando manualmente...', 'info');
-                conectarMQTT();
-            });
-
-            // ==========================================
-            // INICIALIZAÇÃO
-            // ==========================================
-            function init() {
-                log('🚀 Iniciando...', 'info');
-                setStatus('offline', 'Desconectado');
-                updateAllLEDs(0);
-                
-                // Aguarda a biblioteca carregar
-                if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
-                    log('❌ Biblioteca MQTT não carregou!', 'erro');
-                    log('🔄 Tentando novamente em 2 segundos...', 'aviso');
-                    setTimeout(init, 2000);
-                    return;
-                }
-                
-                log('✅ Biblioteca MQTT carregada', 'sucesso');
-                conectarMQTT();
-            }
-
-            // Verifica se a página já carregou
-            if (document.readyState === 'complete') {
-                init();
-            } else {
-                window.addEventListener('load', init);
-            }
-
-            // Debug
-            window.__iot = {
-                conectar: conectarMQTT,
-                publicar: publicar,
-                estados: ledStates,
-                log: log
-            };
-
-        })();
-    </script>
-</body>
-</html>
+                        setStatus('offline', 'Desconectado
